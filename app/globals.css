@@ -1,0 +1,244 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --cream-bg: #fdfcf8;
+  --cream-mid: #f9f7f2;
+  --charcoal: #1a1a1a;
+  --gold: #facc15;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-cream-50 text-charcoal antialiased;
+  background: linear-gradient(160deg, #fdfcf8 0%, #f9f7f2 45%, #f3efe6 100%);
+  min-height: 100vh;
+}
+
+@layer components {
+  .glass-card {
+    @apply rounded-4xl border border-white/60 bg-white/55 shadow-glass backdrop-blur-glass;
+  }
+
+  .glass-card-dark {
+    @apply rounded-4xl border border-charcoal-700/30 bg-charcoal text-white shadow-soft;
+  }
+
+  .pill-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-all duration-200;
+  }
+
+  .pill-btn-dark {
+    @apply pill-btn bg-charcoal text-white hover:bg-charcoal-800;
+  }
+
+  .pill-btn-gold {
+    @apply pill-btn bg-gold text-charcoal hover:bg-gold-dark;
+  }
+
+  .pill-btn-ghost {
+    @apply pill-btn bg-white/70 text-charcoal hover:bg-white shadow-glass;
+  }
+
+  .nav-pill-active {
+    @apply rounded-full bg-charcoal px-4 py-2 text-sm font-medium text-white;
+  }
+
+  .nav-pill {
+    @apply rounded-full px-4 py-2 text-sm font-medium text-charcoal/70 transition-colors hover:text-charcoal;
+  }
+
+  .stat-bar-track {
+    @apply h-3 overflow-hidden rounded-full bg-charcoal/10;
+  }
+
+  .input-field {
+    @apply w-full rounded-2xl border border-charcoal/10 bg-white/80 px-4 py-3 text-sm outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30;
+  }
+
+  .flow-golden-slider::-webkit-slider-thumb {
+    @apply h-5 w-5 cursor-pointer appearance-none rounded-full border-2 border-white bg-gold shadow-soft;
+  }
+
+  .flow-golden-slider::-moz-range-thumb {
+    @apply h-5 w-5 cursor-pointer rounded-full border-2 border-white bg-gold shadow-soft;
+  }
+
+  .kanban-column {
+    @apply flex min-h-[420px] flex-col gap-3 rounded-4xl bg-white/40 p-4 backdrop-blur-sm;
+  }
+
+  .kanban-drop-zone {
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+
+  .batch-drop-active {
+    @apply ring-2 ring-gold/60 shadow-[0_12px_40px_rgba(250,204,21,0.2)];
+    transform: scale(1.03);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .batch-drop-zone {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+}
+
+body.batch-drag-active {
+  cursor: grabbing;
+}
+
+body.batch-drag-active * {
+  user-select: none;
+}
+
+body.eisenhower-drag-active {
+  cursor: grabbing;
+}
+
+body.eisenhower-drag-active * {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+body.kanban-drag-active {
+  cursor: grabbing;
+}
+
+body.kanban-drag-active * {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.kanban-drop-active {
+  @apply ring-2 ring-gold/40;
+}
+
+.eisenhower-drop-active {
+  @apply ring-2 ring-gold/50 shadow-[0_16px_48px_rgba(250,204,21,0.18)];
+  transform: scale(1.01);
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.25s ease;
+}
+
+.eisenhower-drop-zone {
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.25s ease;
+}
+
+.eisenhower-purge-well.eisenhower-drop-active {
+  @apply border-charcoal/25 bg-charcoal/[0.06] text-charcoal/60;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-charcoal/20;
+}
+
+/* Scrollable regions without visible scrollbar (Eisenhower morph, etc.) */
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+}
+
+/* Striped progress pattern from reference */
+.pattern-stripes {
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 4px,
+    rgba(26, 26, 26, 0.15) 4px,
+    rgba(26, 26, 26, 0.15) 8px
+  );
+}
+
+.pattern-dots {
+  background-image: radial-gradient(rgba(26, 26, 26, 0.2) 1px, transparent 1px);
+  background-size: 6px 6px;
+}
+
+@keyframes auth-shimmer {
+  0% {
+    transform: translateX(-120%) skewX(-12deg);
+  }
+  100% {
+    transform: translateX(220%) skewX(-12deg);
+  }
+}
+
+.auth-submit-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.14) 50%,
+    transparent 65%
+  );
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+
+.auth-submit-shimmer:hover::after {
+  animation: auth-shimmer 1.1s ease-in-out;
+}
+
+/* Auth — editorial grain & accessory shimmers */
+.auth-editorial-grain {
+  opacity: 0.028;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+}
+
+.auth-ignite-glow {
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(255, 255, 255, 0.18) 0%,
+    transparent 70%
+  );
+}
+
+@keyframes auth-google-sweep {
+  0% {
+    transform: translateX(-130%) skewX(-10deg);
+  }
+  100% {
+    transform: translateX(230%) skewX(-10deg);
+  }
+}
+
+.auth-google-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 38%,
+    rgba(184, 149, 107, 0.12) 50%,
+    transparent 62%
+  );
+  transform: translateX(-130%);
+  pointer-events: none;
+}
+
+.auth-google-shimmer:hover::after {
+  animation: auth-google-sweep 1.15s ease-in-out;
+}
