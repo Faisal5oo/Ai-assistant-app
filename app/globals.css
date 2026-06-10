@@ -107,6 +107,7 @@ body.eisenhower-drag-active * {
 
 body.kanban-drag-active {
   cursor: grabbing;
+  overflow-x: visible;
 }
 
 body.kanban-drag-active * {
@@ -115,8 +116,25 @@ body.kanban-drag-active * {
   -webkit-touch-callout: none;
 }
 
+body.kanban-drag-active main {
+  overflow: visible;
+}
+
+body.kanban-drag-active .kanban-board-grid,
+body.kanban-drag-active .kanban-drop-zone,
+body.kanban-drag-active [data-kanban-list] {
+  overflow: visible;
+}
+
+body.kanban-drag-active .kanban-drop-zone {
+  isolation: auto;
+}
+
 .kanban-drop-active {
-  @apply ring-2 ring-gold/40;
+  @apply ring-2 ring-gold/50 shadow-[0_16px_48px_rgba(250,204,21,0.18)];
+  transform: scale(1.01);
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.25s ease;
 }
 
 .eisenhower-drop-active {

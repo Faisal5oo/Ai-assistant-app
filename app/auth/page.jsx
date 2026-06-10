@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTaskStore } from "@/store/useTaskStore";
 
 /* ─── Motion tokens (Apple-inspired easing) ─── */
@@ -674,6 +675,7 @@ export default function AuthPage() {
   const [signupCelebrating, setSignupCelebrating] = useState(false);
 
   const setUserProfile = useTaskStore((s) => s.setUserProfile);
+  const queryClient = useQueryClient();
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
   const showError = useCallback((message) => {
@@ -723,6 +725,7 @@ export default function AuthPage() {
           return;
         }
 
+        queryClient.removeQueries();
         if (data.user) {
           setUserProfile({
             name: data.user.name,
@@ -737,7 +740,7 @@ export default function AuthPage() {
         setGoogleLoading(false);
       }
     },
-    [router, setUserProfile, showError, showSuccess]
+    [router, queryClient, setUserProfile, showError, showSuccess]
   );
 
   const initGoogleIdentity = useCallback(() => {
@@ -841,6 +844,7 @@ export default function AuthPage() {
         return;
       }
 
+      queryClient.removeQueries();
       if (data.user) {
         setUserProfile({
           name: data.user.name,

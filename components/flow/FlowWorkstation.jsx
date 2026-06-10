@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Zap } from "lucide-react";
 import { useTaskStore } from "@/store/useTaskStore";
+import { useTasks } from "@/hooks/queries/useTasksQuery";
 import { useFlowSession } from "@/hooks/useFlowSession";
 import { playFlowSessionChime } from "@/lib/flowAudio";
 import { FLOW_LAYOUT_TRANSITION } from "@/lib/flowConstants";
@@ -14,7 +15,7 @@ import { MindDumpSandbox } from "./MindDumpSandbox";
 import { ActiveRecovery } from "./ActiveRecovery";
 
 export function FlowWorkstation() {
-  const tasks = useTaskStore((s) => s.tasks);
+  const { tasks } = useTasks();
   const batchingFilterTag = useTaskStore((s) => s.batchingFilterTag);
   const setFlowFocusMode = useTaskStore((s) => s.setFlowFocusMode);
 

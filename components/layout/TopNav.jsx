@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { Bell, Loader2, LogOut, Settings } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTaskStore } from "@/store/useTaskStore";
 
 const TOP_LINKS = [
@@ -43,6 +44,7 @@ export function TopNav() {
   const userName = useTaskStore((s) => s.userName);
   const userAvatar = useTaskStore((s) => s.userAvatar);
   const clearUserProfile = useTaskStore((s) => s.clearUserProfile);
+  const queryClient = useQueryClient();
   const [loggingOut, setLoggingOut] = useState(false);
 
   const handleLogout = async () => {
@@ -54,6 +56,7 @@ export function TopNav() {
         method: "POST",
         credentials: "include",
       });
+      queryClient.removeQueries();
       clearUserProfile();
       router.push("/auth");
     } catch {

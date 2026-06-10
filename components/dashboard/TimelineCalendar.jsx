@@ -2,14 +2,14 @@
 
 import { format } from "date-fns";
 import { motion } from "framer-motion";
-import { useTaskStore } from "@/store/useTaskStore";
+import { useTasks } from "@/hooks/queries/useTasksQuery";
 import { formatScheduledTime, getHourFromIso, isScheduledToday } from "@/lib/utils";
 
 const HOURS = [8, 9, 10, 11];
 const HOUR_HEIGHT = 56;
 
 export function TimelineCalendar() {
-  const tasks = useTaskStore((s) => s.tasks);
+  const { tasks } = useTasks();
   const todayTasks = tasks
     .filter((t) => t.scheduledAt && isScheduledToday(t.scheduledAt))
     .sort(

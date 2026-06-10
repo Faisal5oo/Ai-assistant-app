@@ -5,6 +5,8 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Timer } from "lucide-react";
 import { useTaskStore } from "@/store/useTaskStore";
+import { useTasks } from "@/hooks/queries/useTasksQuery";
+import { useDashboard } from "@/hooks/queries/useDashboardQuery";
 import { usePomodoroTimer } from "@/hooks/usePomodoroTimer";
 import { playPomodoroChime } from "@/lib/pomodoroAudio";
 import {
@@ -26,8 +28,8 @@ function formatSeconds(total) {
 }
 
 export function PomodoroWorkstation() {
-  const tasks = useTaskStore((s) => s.tasks);
-  const pomodoroDaily = useTaskStore((s) => s.pomodoroDaily);
+  const { tasks } = useTasks();
+  const { pomodoroDaily } = useDashboard();
   const recordComplete = useTaskStore((s) => s.recordPomodoroWorkComplete);
   const resolveDefaultTaskId = useTaskStore((s) => s.resolveDefaultTaskId);
 

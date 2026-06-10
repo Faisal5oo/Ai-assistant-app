@@ -2,16 +2,17 @@
 
 import { motion } from "framer-motion";
 import { useTaskStore } from "@/store/useTaskStore";
+import { useTasks } from "@/hooks/queries/useTasksQuery";
 import { SessionTimerText } from "@/components/timer/SessionTimerText";
 
 export function ActiveSessionBar() {
+  const { tasks } = useTasks();
   const activeTechnique = useTaskStore((s) => s.activeTechnique);
   const isRunning = useTaskStore((s) => s.activeTimer.isRunning);
   const taskId = useTaskStore((s) => s.activeTimer.taskId);
-  const taskTitle = useTaskStore((s) => {
-    if (!taskId) return null;
-    return s.tasks.find((t) => t.id === taskId)?.title ?? null;
-  });
+  const taskTitle = taskId
+    ? tasks.find((t) => t.id === taskId)?.title ?? null
+    : null;
 
   if (!isRunning && !activeTechnique) return null;
 

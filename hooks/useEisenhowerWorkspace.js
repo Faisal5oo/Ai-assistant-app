@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { useTaskStore } from "@/store/useTaskStore";
+import { useTasks } from "@/hooks/queries/useTasksQuery";
 import {
   EISENHOWER_INBOX_ZONE,
   EISENHOWER_QUADRANTS,
@@ -22,7 +23,7 @@ import {
  * }}
  */
 export function useEisenhowerWorkspace() {
-  const tasks = useTaskStore((s) => s.tasks);
+  const { tasks } = useTasks();
   const setEisenhowerQuadrant = useTaskStore((s) => s.setEisenhowerQuadrant);
   const deleteTask = useTaskStore((s) => s.deleteTask);
   const updateEisenhowerMeta = useTaskStore((s) => s.updateEisenhowerMeta);

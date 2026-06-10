@@ -1,11 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useTaskStore } from "@/store/useTaskStore";
+import { useTasks } from "@/hooks/queries/useTasksQuery";
 import { msToHours } from "@/lib/utils";
 
 export function EstimatedVsActual() {
-  const tasks = useTaskStore((s) => s.tasks);
+  const { tasks } = useTasks();
   const withData = tasks.filter(
     (t) => t.estimatedTime > 0 || t.actualTimeSpent > 0
   );

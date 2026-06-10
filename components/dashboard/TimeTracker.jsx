@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Play, Pause, Square, Clock } from "lucide-react";
 import { useTaskStore } from "@/store/useTaskStore";
+import { useTasks } from "@/hooks/queries/useTasksQuery";
 import { useTimerTick } from "@/hooks/useTimerTick";
 import { formatMsToTimer } from "@/lib/utils";
 
@@ -55,7 +56,7 @@ function TimerProgressRing() {
 export function TimeTracker() {
   const taskId = useTaskStore((s) => s.activeTimer.taskId);
   const isRunning = useTaskStore((s) => s.activeTimer.isRunning);
-  const tasks = useTaskStore((s) => s.tasks);
+  const { tasks } = useTasks();
   const startTimer = useTaskStore((s) => s.startTimer);
   const pauseTimer = useTaskStore((s) => s.pauseTimer);
   const resumeTimer = useTaskStore((s) => s.resumeTimer);

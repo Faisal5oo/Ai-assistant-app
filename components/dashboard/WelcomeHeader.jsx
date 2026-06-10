@@ -2,11 +2,12 @@
 
 import { motion } from "framer-motion";
 import { useTaskStore } from "@/store/useTaskStore";
+import { useTasks } from "@/hooks/queries/useTasksQuery";
 import { calculateFocusScore } from "@/lib/utils";
 import { CheckCircle2, Clock, Target } from "lucide-react";
 
 export function WelcomeHeader() {
-  const tasks = useTaskStore((s) => s.tasks);
+  const { tasks } = useTasks();
   const userName = useTaskStore((s) => s.userName);
 
   const completed = tasks.filter((t) => t.status === "Completed").length;

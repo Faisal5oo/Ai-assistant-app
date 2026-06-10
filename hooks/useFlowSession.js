@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useTaskStore } from "@/store/useTaskStore";
+import { getTasksFromCache } from "@/lib/query-cache";
 import { FLOW_DEFAULT_MINUTES } from "@/lib/flowConstants";
 
 /**
@@ -33,7 +34,7 @@ export function useFlowSession() {
       const { primaryTaskId, targetTaskIds, durationMinutes } = config;
       if (!primaryTaskId || !durationMinutes) return false;
 
-      const tasks = useTaskStore.getState().tasks;
+      const tasks = getTasksFromCache();
       const primary = tasks.find((t) => t.id === primaryTaskId);
       if (!primary) return false;
 

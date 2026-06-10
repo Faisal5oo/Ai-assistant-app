@@ -9,6 +9,13 @@ import { motion } from "framer-motion";
 import { ListTodo, Plus } from "lucide-react";
 
 import { useTaskStore } from "@/store/useTaskStore";
+import { useTasks } from "@/hooks/queries/useTasksQuery";
+import {
+  useCreateTaskMutation,
+  useUpdateTaskMutation,
+  useDeleteTaskMutation,
+  useReorderTasksMutation,
+} from "@/hooks/queries/useTaskMutations";
 
 import { KANBAN_SPRING, KANBAN_STATUSES } from "@/lib/kanban";
 
@@ -24,21 +31,13 @@ import { TaskModal } from "./TaskModal";
 
 export function KanbanBoard() {
 
-  const tasks = useTaskStore((s) => s.tasks);
-
+  const { tasks } = useTasks();
   const batchingFilterTag = useTaskStore((s) => s.batchingFilterTag);
-
   const setBatchingFilterTag = useTaskStore((s) => s.setBatchingFilterTag);
-
-  const addTask = useTaskStore((s) => s.addTask);
-
-  const updateTask = useTaskStore((s) => s.updateTask);
-
-  const deleteTask = useTaskStore((s) => s.deleteTask);
-
-  const reorderTasks = useTaskStore((s) => s.reorderTasks);
-
-  const moveTaskToIndex = useTaskStore((s) => s.moveTaskToIndex);
+  const createTask = useCreateTaskMutation();
+  const updateTask = useUpdateTaskMutation();
+  const deleteTask = useDeleteTaskMutation();
+  const reorderTasksMutation = useReorderTasksMutation();
 
 
 
@@ -72,120 +71,86 @@ export function KanbanBoard() {
 
 
 
+  const syncColumn = useCallback(
+    (columnId, orderedTasks, sourceColumnId, sourceOrderedTasks) => {
+      reorderTasksMutation.mutate({
+        columnId,
+        taskIds: orderedTasks.map((t) => t.id),
+        ...(sourceColumnId && sourceOrderedTasks
+          ? {
+              sourceColumnId,
+              sourceTaskIds: sourceOrderedTasks.map((t) => t.id),
+            }
+          : {}),
+      });
+    },
+    [reorderTasksMutation]
+  );
+
   const handleDrop = useCallback(
-
     (taskId, status, sourceStatus, dropIndex) => {
-
       if (!status) return;
 
-
-
       const columnTasks = visibleTasks.filter((t) => t.status === status);
-
       const sourceTasks = sourceStatus
-
         ? visibleTasks.filter((t) => t.status === sourceStatus)
-
         : [];
-
       const startIndex = sourceTasks.findIndex((t) => t.id === taskId);
 
-
-
       if (status === sourceStatus) {
-
         if (startIndex < 0) return;
-
         let endIndex = dropIndex;
-
         if (endIndex > startIndex) endIndex -= 1;
-
         if (endIndex === startIndex) return;
 
-        reorderTasks(
-
-          /** @type {import('@/types/interfaces').TaskStatus} */ (status),
-
-          startIndex,
-
-          endIndex
-
-        );
-
+        const nextColumn = [...sourceTasks];
+        const [moved] = nextColumn.splice(startIndex, 1);
+        nextColumn.splice(endIndex, 0, moved);
+        syncColumn(status, nextColumn);
         return;
-
       }
 
+      const without = visibleTasks.filter((t) => t.id !== taskId);
+      const task = visibleTasks.find((t) => t.id === taskId);
+      if (!task) return;
 
-
+      const column = without.filter((t) => t.status === status);
       const clamped = Math.max(0, Math.min(dropIndex, columnTasks.length));
+      column.splice(clamped, 0, { ...task, status });
 
-      moveTaskToIndex(
+      const sourceColumn = sourceStatus
+        ? sourceTasks.filter((t) => t.id !== taskId)
+        : null;
 
-        taskId,
-
-        /** @type {import('@/types/interfaces').TaskStatus} */ (status),
-
-        clamped
-
-      );
-
+      syncColumn(status, column, sourceStatus, sourceColumn);
     },
-
-    [visibleTasks, reorderTasks, moveTaskToIndex]
-
+    [visibleTasks, syncColumn]
   );
 
 
 
-  const { session, draggingTaskId, hoverInsert, startDrag, registerGhostMover } =
-
+  const { session, isDragging, draggingTaskId, startDrag, registerGhostMover } =
     useKanbanDrag({
-
       onDrop: handleDrop,
-
       onHoverStatus: setHoverStatus,
-
     });
 
-
-
   const handleDragStart = useCallback(
-
     (taskId, title, x, y, sourceStatus) => {
-      const sourceIndex = visibleTasks
-        .filter((t) => t.status === sourceStatus)
-        .findIndex((t) => t.id === taskId);
-      startDrag(
-        taskId,
-        title,
-        x,
-        y,
-        sourceStatus,
-        sourceIndex < 0 ? 0 : sourceIndex
-      );
+      startDrag(taskId, title, x, y, sourceStatus);
     },
-
-    [startDrag, visibleTasks]
-
+    [startDrag]
   );
 
 
 
   const handleSave = (data) => {
-
     if (editingTask) {
-
-      updateTask(editingTask.id, data);
-
+      updateTask.mutate({ id: editingTask.id, updates: data });
     } else {
-
-      addTask(data);
-
+      createTask.mutate(data);
     }
-
     setEditingTask(null);
-
   };
 
 
@@ -213,13 +178,10 @@ export function KanbanBoard() {
   return (
 
     <motion.div
-
       initial={{ opacity: 0, y: 12 }}
-
       animate={{ opacity: 1, y: 0 }}
-
       transition={KANBAN_SPRING}
-
+      className="relative min-h-[calc(100vh-8rem)]"
     >
 
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
@@ -288,53 +250,29 @@ export function KanbanBoard() {
 
 
 
-      <div className="grid gap-5 md:grid-cols-3">
+      <div className="kanban-board-grid grid gap-5 md:grid-cols-3">
+          {KANBAN_STATUSES.map((status) => (
+            <KanbanColumn
+              key={status}
+              status={status}
+              tasks={visibleTasks.filter((t) => t.status === status)}
+              isHoverTarget={hoverStatus === status}
+              draggingTaskId={draggingTaskId}
+              onDragStart={handleDragStart}
+              onEdit={openEdit}
+              onDelete={(id) => deleteTask.mutate(id)}
+            />
+          ))}
+        </div>
 
-        {KANBAN_STATUSES.map((status) => (
-
-          <KanbanColumn
-
-            key={status}
-
-            status={status}
-
-            tasks={visibleTasks.filter((t) => t.status === status)}
-
-            isHoverTarget={hoverStatus === status}
-
-            draggingTaskId={draggingTaskId}
-
-            sourceStatus={session.sourceStatus}
-
-            sourceIndex={session.sourceIndex}
-
-            hoverInsert={hoverInsert}
-
-            onDragStart={handleDragStart}
-
-            onEdit={openEdit}
-
-            onDelete={deleteTask}
-
-          />
-
-        ))}
-
-      </div>
-
-
-
-      <KanbanDragGhost
-
-        title={session.taskTitle}
-
-        initialX={session.startX}
-
-        initialY={session.startY}
-
-        registerMover={registerGhostMover}
-
-      />
+      {isDragging && session.taskTitle && (
+        <KanbanDragGhost
+          title={session.taskTitle}
+          initialX={session.startX}
+          initialY={session.startY}
+          registerMover={registerGhostMover}
+        />
+      )}
 
 
 

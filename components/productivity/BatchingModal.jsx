@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Tag } from "lucide-react";
+import { useTasks } from "@/hooks/queries/useTasksQuery";
 import { useTaskStore } from "@/store/useTaskStore";
 
 /**
@@ -12,7 +13,7 @@ import { useTaskStore } from "@/store/useTaskStore";
  * @param {(message: string) => void} props.onFeedback
  */
 export function BatchingModal({ open, onClose, onFeedback }) {
-  const tasks = useTaskStore((s) => s.tasks);
+  const { tasks } = useTasks();
   const startBatchSession = useTaskStore((s) => s.startBatchSession);
 
   const tagGroups = useMemo(() => {

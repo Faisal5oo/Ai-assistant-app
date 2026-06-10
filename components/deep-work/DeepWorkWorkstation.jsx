@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Brain } from "lucide-react";
 import { useTaskStore } from "@/store/useTaskStore";
+import { useTasks } from "@/hooks/queries/useTasksQuery";
 import { useDeepWorkSession } from "@/hooks/useDeepWorkSession";
 import { playDeepWorkSuccessChime } from "@/lib/deepWorkAudio";
 import { PreFlightCard } from "./PreFlightCard";
@@ -14,7 +15,7 @@ import { SessionRecap } from "./SessionRecap";
 import { AbandonInterstitial } from "./AbandonInterstitial";
 
 export function DeepWorkWorkstation() {
-  const tasks = useTaskStore((s) => s.tasks);
+  const { tasks } = useTasks();
   const setDeepWorkFocusMode = useTaskStore((s) => s.setDeepWorkFocusMode);
 
   const {

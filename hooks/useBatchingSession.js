@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useTaskStore } from "@/store/useTaskStore";
+import { useTasks } from "@/hooks/queries/useTasksQuery";
 import {
   buildBatchLayout,
   computeFocusEfficiency,
@@ -26,7 +27,7 @@ import {
  */
 
 export function useBatchingSession() {
-  const tasks = useTaskStore((s) => s.tasks);
+  const { tasks } = useTasks();
   const toggleTaskComplete = useTaskStore((s) => s.toggleTaskComplete);
   const recordDeepWorkSession = useTaskStore((s) => s.recordDeepWorkSession);
   const setBatchingFocusMode = useTaskStore((s) => s.setBatchingFocusMode);

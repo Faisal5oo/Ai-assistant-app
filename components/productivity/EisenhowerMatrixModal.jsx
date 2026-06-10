@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Play } from "lucide-react";
+import { useTasks } from "@/hooks/queries/useTasksQuery";
 import { useTaskStore } from "@/store/useTaskStore";
 import { resolveEisenhowerQuadrant, QUADRANT_META } from "@/lib/eisenhower";
 
@@ -13,7 +14,7 @@ import { resolveEisenhowerQuadrant, QUADRANT_META } from "@/lib/eisenhower";
  * @param {(message: string) => void} props.onFeedback
  */
 export function EisenhowerMatrixModal({ open, onClose, onFeedback }) {
-  const tasks = useTaskStore((s) => s.tasks);
+  const { tasks } = useTasks();
   const startEisenhowerTask = useTaskStore((s) => s.startEisenhowerTask);
 
   const quadrants = useMemo(() => {

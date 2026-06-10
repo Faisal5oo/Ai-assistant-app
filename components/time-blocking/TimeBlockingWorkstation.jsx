@@ -5,6 +5,7 @@ import Link from "next/link";
 import { LayoutGroup, motion } from "framer-motion";
 import { ArrowLeft, CalendarClock } from "lucide-react";
 import { useTaskStore } from "@/store/useTaskStore";
+import { useTasks } from "@/hooks/queries/useTasksQuery";
 import { useCurrentClock } from "@/hooks/useCurrentClock";
 import {
   buildSlotAssignmentMap,
@@ -17,7 +18,7 @@ import { BrainDumpPanel } from "./BrainDumpPanel";
 import { Timeline24Hour } from "./Timeline24Hour";
 
 export function TimeBlockingWorkstation() {
-  const tasks = useTaskStore((s) => s.tasks);
+  const { tasks } = useTasks();
   const assignTimeBlock = useTaskStore((s) => s.assignTimeBlock);
   const unassignTimeBlock = useTaskStore((s) => s.unassignTimeBlock);
 

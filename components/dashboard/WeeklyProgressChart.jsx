@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format, subDays } from "date-fns";
-import { useTaskStore } from "@/store/useTaskStore";
+import { useDashboard } from "@/hooks/queries/useDashboardQuery";
 import { formatMsToHoursMinutes, msToHours } from "@/lib/utils";
 
 const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 
 export function WeeklyProgressChart() {
-  const dailyLogs = useTaskStore((s) => s.dailyLogs);
+  const { dailyLogs } = useDashboard();
   const [hovered, setHovered] = useState(null);
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {

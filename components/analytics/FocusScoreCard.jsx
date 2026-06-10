@@ -1,12 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useTaskStore } from "@/store/useTaskStore";
+import { useTasks } from "@/hooks/queries/useTasksQuery";
 import { calculateFocusScore } from "@/lib/utils";
 import { Target, TrendingUp, CheckCircle2 } from "lucide-react";
 
 export function FocusScoreCard() {
-  const tasks = useTaskStore((s) => s.tasks);
+  const { tasks } = useTasks();
   const score = calculateFocusScore(tasks);
   const completed = tasks.filter((t) => t.status === "Completed").length;
   const accurate = tasks.filter((t) => {

@@ -3,11 +3,13 @@
 import { useCallback, useState } from "react";
 import { motion } from "framer-motion";
 import { useTaskStore } from "@/store/useTaskStore";
+import { useTasks } from "@/hooks/queries/useTasksQuery";
 import { TechniqueCard } from "@/components/productivity/TechniqueCard";
 import { ActiveSessionBar } from "@/components/productivity/ActiveSessionBar";
 import { TimeBlockingModal } from "@/components/productivity/TimeBlockingModal";
 import { BatchingModal } from "@/components/productivity/BatchingModal";
 import { EisenhowerMatrixModal } from "@/components/productivity/EisenhowerMatrixModal";
+import { getTasksFromCache } from "@/lib/query-cache";
 import { TECHNIQUES } from "@/lib/productivityTechniques";
 
 export default function ProductivityPage() {
@@ -15,7 +17,7 @@ export default function ProductivityPage() {
   const activeTechnique = useTaskStore((s) => s.activeTechnique);
   const productivityModal = useTaskStore((s) => s.productivityModal);
   const setProductivityModal = useTaskStore((s) => s.setProductivityModal);
-  const tasks = useTaskStore((s) => s.tasks);
+  const { tasks } = useTasks();
 
   const [feedback, setFeedback] = useState("");
 
@@ -34,8 +36,9 @@ export default function ProductivityPage() {
       if (result === "modal") return;
 
       if (result) {
-        const task = tasks.find((t) => t.id === result) ??
-          useTaskStore.getState().tasks.find((t) => t.id === result);
+        const task =
+          tasks.find((t) => t.id === result) ??
+          getTasksFromCache().find((t) => t.id === result);
         const label = TECHNIQUES.find((t) => t.id === techniqueId)?.title ?? techniqueId;
         showFeedback(`${label} started on “${task?.title ?? "task"}”`);
         return;

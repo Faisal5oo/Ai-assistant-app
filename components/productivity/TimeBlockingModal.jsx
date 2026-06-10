@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
+import { useTasks } from "@/hooks/queries/useTasksQuery";
 import { useTaskStore } from "@/store/useTaskStore";
 
 /**
@@ -11,7 +12,7 @@ import { useTaskStore } from "@/store/useTaskStore";
  * @param {() => void} props.onClose
  */
 export function TimeBlockingModal({ open, onClose }) {
-  const tasks = useTaskStore((s) => s.tasks);
+  const { tasks } = useTasks();
   const confirmTimeBlock = useTaskStore((s) => s.confirmTimeBlock);
   const resolveDefaultTaskId = useTaskStore((s) => s.resolveDefaultTaskId);
 

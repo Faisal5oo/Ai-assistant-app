@@ -1,14 +1,14 @@
 "use client";
 
 import { useMemo } from "react";
-import { useTaskStore } from "@/store/useTaskStore";
+import { useTasks } from "@/hooks/queries/useTasksQuery";
 import { CategoryChart } from "@/components/analytics/CategoryChart";
 import { EstimatedVsActual } from "@/components/analytics/EstimatedVsActual";
 import { FocusScoreCard } from "@/components/analytics/FocusScoreCard";
 import { WeeklyProgressChart } from "@/components/dashboard/WeeklyProgressChart";
 
 export default function AnalyticsPage() {
-  const tasks = useTaskStore((s) => s.tasks);
+  const { tasks } = useTasks();
 
   const dataByCategory = useMemo(() => {
     /** @type {Record<string, number>} */

@@ -9,14 +9,15 @@ import {
   Calendar,
   Check,
 } from "lucide-react";
-import { useTaskStore } from "@/store/useTaskStore";
+import { useTasks } from "@/hooks/queries/useTasksQuery";
+import { useToggleTaskCompleteMutation } from "@/hooks/queries/useTaskMutations";
 import { formatScheduledTime } from "@/lib/utils";
 import { format } from "date-fns";
 
 const ICONS = [Video, Users, Monitor, FileText, Calendar, Video, Users, Monitor];
 
 export function OnboardingProgress() {
-  const tasks = useTaskStore((s) => s.tasks);
+  const { tasks } = useTasks();
   const today = tasks.filter(
     (t) => t.status !== "Completed" || t.actualTimeSpent > 0
   );
@@ -40,8 +41,8 @@ export function OnboardingProgress() {
 }
 
 export function TodayChecklist() {
-  const tasks = useTaskStore((s) => s.tasks);
-  const toggleTaskComplete = useTaskStore((s) => s.toggleTaskComplete);
+  const { tasks } = useTasks();
+  const toggleComplete = useToggleTaskCompleteMutation();
 
   const todayTodos = tasks
     .filter((t) => t.status !== "Completed")
@@ -90,7 +91,7 @@ export function TodayChecklist() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => toggleTaskComplete(task.id)}
+                  onClick={() => toggleComplete.mutate(task.id)}
                   className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 transition ${
                     done
                       ? "border-gold bg-gold text-charcoal"
