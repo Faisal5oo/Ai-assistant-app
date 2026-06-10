@@ -60,7 +60,7 @@ export function WelcomeHeader() {
         animate={{ opacity: 1, y: 0 }}
         className="font-display text-3xl font-medium tracking-tight md:text-4xl lg:text-5xl"
       >
-        Welcome in, {userName}
+        Welcome in, {userName || "there"}
       </motion.h1>
 
       <div className="mt-6 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">

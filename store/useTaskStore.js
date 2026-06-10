@@ -39,6 +39,14 @@ function addTimeToTask(tasks, id, ms) {
   );
 }
 
+/** @param {string | undefined} avatar */
+function toHighResAvatarUrl(avatar) {
+  if (!avatar || typeof avatar !== "string") {
+    return "";
+  }
+  return avatar.replace(/=s\d+-c/, "=s400-c");
+}
+
 /** @returns {ActiveTimer} */
 const initialTimer = () => ({
   taskId: null,
@@ -55,7 +63,8 @@ export const useTaskStore = create(
       tasks: createSeedTasks(),
       dailyLogs: createSeedDailyLogs(),
       activeTimer: initialTimer(),
-      userName: "Nixtio",
+      userName: "",
+      userAvatar: "",
       activeTechnique: null,
       pomodoroPhase: "work",
       pomodoroCount: 0,
@@ -485,6 +494,16 @@ export const useTaskStore = create(
       },
 
       setUserName: (name) => set({ userName: name }),
+      setUserProfile: ({ name, avatar }) =>
+        set({
+          userName: name,
+          userAvatar: toHighResAvatarUrl(avatar),
+        }),
+      clearUserProfile: () =>
+        set({
+          userName: "",
+          userAvatar: "",
+        }),
     }),
     {
       name: "taskflow-storage",
@@ -492,6 +511,7 @@ export const useTaskStore = create(
         tasks: state.tasks,
         dailyLogs: state.dailyLogs,
         userName: state.userName,
+        userAvatar: state.userAvatar,
         pomodoroDaily: state.pomodoroDaily,
       }),
     }

@@ -18,11 +18,15 @@ const UserSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    password: {
+      type: String,
+      select: false,
+    },
     googleId: {
       type: String,
-      required: true,
       unique: true,
       index: true,
+      sparse: true,
     },
     createdAt: {
       type: Date,

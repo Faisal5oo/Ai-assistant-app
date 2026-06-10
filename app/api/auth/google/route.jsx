@@ -4,8 +4,6 @@ import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
 import { generateToken, setAuthCookie } from "@/lib/auth-utils";
 
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
 /**
  * @param {import('mongoose').Document} user
  */
@@ -21,7 +19,7 @@ function toPublicUser(user) {
 
 export async function POST(request) {
   try {
-    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
     if (!clientId) {
       return NextResponse.json(
         { success: false, error: "Authentication is not configured." },
@@ -46,6 +44,8 @@ export async function POST(request) {
         { status: 400 }
       );
     }
+
+    const googleClient = new OAuth2Client(clientId);
 
     let ticket;
     try {
@@ -78,27 +78,32 @@ export async function POST(request) {
     let user = await User.findOne({ googleId });
 
     if (!user) {
-      user = await User.findOneAndUpdate(
-        { email },
-        {
-          email,
-          name,
-          avatar,
-          googleId,
-        },
-        { new: true, upsert: true, setDefaultsOnInsert: true, runValidators: true }
-      );
+      user = await User.create({
+        email,
+        name,
+        avatar,
+        googleId,
+      });
     } else {
-      user.name = name;
-      user.avatar = avatar;
-      if (user.email !== email) {
-        user.email = email;
+      let hasChanges = false;
+
+      if (user.name !== name) {
+        user.name = name;
+        hasChanges = true;
       }
-      await user.save();
+
+      if (user.avatar !== avatar) {
+        user.avatar = avatar;
+        hasChanges = true;
+      }
+
+      if (hasChanges) {
+        await user.save();
+      }
     }
 
     const token = await generateToken({
-      userId: user._id.toString(),
+      id: user._id.toString(),
       email: user.email,
     });
 

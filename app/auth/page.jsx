@@ -11,23 +11,32 @@ import {
 } from "framer-motion";
 import {
   CheckCircle2,
+  Eye,
+  EyeOff,
   Loader2,
   ShieldAlert,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
+import { useTaskStore } from "@/store/useTaskStore";
 
-/* ─── Motion tokens ─── */
+/* ─── Motion tokens (Apple-inspired easing) ─── */
 const EASE_LUXE = [0.22, 1, 0.36, 1];
-const SPRING_CARD = { type: "spring", stiffness: 300, damping: 25 };
-const SPRING_GLIDE = { type: "spring", stiffness: 280, damping: 28 };
-const MORPH_TWEEN = { type: "tween", ease: "easeInOut", duration: 0.35 };
+const EASE_APPLE = [0.32, 0.72, 0, 1];
+const SPRING_CARD = { type: "spring", stiffness: 380, damping: 34, mass: 0.85 };
+const SPRING_GLIDE = { type: "spring", stiffness: 420, damping: 38, mass: 0.75 };
+const MORPH_TWEEN = { type: "tween", ease: EASE_APPLE, duration: 0.42 };
 const GOLD_MUTED = "#B8956B";
 
 const FIELD_CROSSFADE = {
-  initial: { opacity: 0, y: 14 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -10 },
+  initial: { opacity: 0, y: 10, filter: "blur(4px)" },
+  animate: { opacity: 1, y: 0, filter: "blur(0px)" },
+  exit: { opacity: 0, y: -8, filter: "blur(3px)" },
+};
+
+const CARD_ENTRANCE = {
+  initial: { opacity: 0, scale: 0.965, y: 18, filter: "blur(10px)" },
+  animate: { opacity: 1, scale: 1, y: 0, filter: "blur(0px)" },
 };
 
 const CARD_SHAKE = {
@@ -116,20 +125,24 @@ function FloatingField({ id, label, type, value, onChange, autoComplete }) {
   const active = focused || value.length > 0;
 
   return (
-    <div className="relative pt-6">
+    <motion.div
+      layout
+      transition={SPRING_GLIDE}
+      className="relative pt-5 sm:pt-6"
+    >
       <motion.label
         htmlFor={id}
         animate={{
-          y: active ? -26 : 0,
-          scale: active ? 0.78 : 1,
+          y: active ? -24 : 0,
+          scale: active ? 0.8 : 1,
           color: active ? GOLD_MUTED : "rgba(26, 26, 26, 0.42)",
         }}
         transition={SPRING_GLIDE}
-        className="pointer-events-none absolute left-0 origin-left font-display text-[13px] tracking-[0.14em]"
+        className="pointer-events-none absolute left-0 origin-left font-display text-[12px] tracking-[0.14em] sm:text-[13px]"
       >
         {label}
       </motion.label>
-      <input
+      <motion.input
         id={id}
         type={type}
         value={value}
@@ -137,9 +150,82 @@ function FloatingField({ id, label, type, value, onChange, autoComplete }) {
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        className="w-full rounded-xl border-0 bg-charcoal/[0.03] px-4 pb-3 pt-4 font-sans text-[15px] tracking-wide text-charcoal outline-none ring-0 transition-[box-shadow,background-color] duration-300 focus:bg-white/60 focus:shadow-[inset_0_0_0_1px_rgba(184,149,107,0.35)]"
+        animate={{
+          scale: focused ? 1.005 : 1,
+        }}
+        transition={SPRING_GLIDE}
+        className="auth-field-input w-full rounded-xl border-0 bg-charcoal/[0.03] px-4 pb-2.5 pt-3.5 font-sans text-[15px] tracking-wide text-charcoal outline-none ring-0 transition-[box-shadow,background-color] duration-300 focus:bg-white/60 focus:shadow-[inset_0_0_0_1px_rgba(184,149,107,0.35)] sm:pb-3 sm:pt-4"
       />
-    </div>
+    </motion.div>
+  );
+}
+
+/**
+ * @param {Object} props
+ * @param {string} props.id
+ * @param {string} props.label
+ * @param {string} props.value
+ * @param {(v: string) => void} props.onChange
+ * @param {string} [props.autoComplete]
+ */
+function PasswordFloatingField({ id, label, value, onChange, autoComplete }) {
+  const [focused, setFocused] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const active = focused || value.length > 0;
+
+  return (
+    <motion.div
+      layout
+      transition={SPRING_GLIDE}
+      className="relative pt-5 sm:pt-6"
+    >
+      <motion.label
+        htmlFor={id}
+        animate={{
+          y: active ? -24 : 0,
+          scale: active ? 0.8 : 1,
+          color: active ? GOLD_MUTED : "rgba(26, 26, 26, 0.42)",
+        }}
+        transition={SPRING_GLIDE}
+        className="pointer-events-none absolute left-0 origin-left font-display text-[12px] tracking-[0.14em] sm:text-[13px]"
+      >
+        {label}
+      </motion.label>
+      <motion.input
+        id={id}
+        type={visible ? "text" : "password"}
+        value={value}
+        autoComplete={autoComplete}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        animate={{ scale: focused ? 1.005 : 1 }}
+        transition={SPRING_GLIDE}
+        className="auth-field-input w-full rounded-xl border-0 bg-charcoal/[0.03] px-4 pb-2.5 pt-3.5 pr-12 font-sans text-[15px] tracking-wide text-charcoal outline-none ring-0 transition-[box-shadow,background-color] duration-300 focus:bg-white/60 focus:shadow-[inset_0_0_0_1px_rgba(184,149,107,0.35)] sm:pb-3 sm:pt-4"
+      />
+      <motion.button
+        type="button"
+        tabIndex={-1}
+        aria-label={visible ? "Hide password" : "Show password"}
+        onClick={() => setVisible((v) => !v)}
+        whileTap={{ scale: 0.9 }}
+        transition={SPRING_GLIDE}
+        className="absolute bottom-2.5 right-3 flex h-9 w-9 items-center justify-center rounded-xl text-charcoal/40 transition-colors hover:bg-charcoal/[0.04] hover:text-charcoal/65 sm:bottom-3"
+      >
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.span
+            key={visible ? "hide" : "show"}
+            initial={{ opacity: 0, scale: 0.8, rotate: -8 }}
+            animate={{ opacity: 1, scale: 1, rotate: 0 }}
+            exit={{ opacity: 0, scale: 0.8, rotate: 8 }}
+            transition={{ duration: 0.22, ease: EASE_APPLE }}
+            className="flex items-center justify-center"
+          >
+            {visible ? <EyeOff size={18} strokeWidth={1.75} /> : <Eye size={18} strokeWidth={1.75} />}
+          </motion.span>
+        </AnimatePresence>
+      </motion.button>
+    </motion.div>
   );
 }
 
@@ -154,15 +240,14 @@ function AuthToast({ toast, onDismiss }) {
         <motion.div
           key={`${toast.type}-${toast.message}`}
           role="alert"
-          layout
-          initial={{ opacity: 0, y: -20, height: 0 }}
-          animate={{ opacity: 1, y: 0, height: "auto" }}
-          exit={{ opacity: 0, y: -12, height: 0 }}
-          transition={{ duration: 0.38, ease: EASE_LUXE }}
-          className={`mb-5 flex items-start gap-3 overflow-hidden rounded-2xl border px-4 py-3.5 ${
+          initial={{ opacity: 0, y: -10, scale: 0.97, filter: "blur(6px)" }}
+          animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+          exit={{ opacity: 0, y: -8, scale: 0.98, filter: "blur(4px)" }}
+          transition={{ duration: 0.45, ease: EASE_APPLE }}
+          className={`flex items-start gap-3 overflow-hidden rounded-2xl border px-4 py-3 shadow-[0_8px_32px_rgba(26,26,26,0.08)] backdrop-blur-xl ${
             toast.type === "error"
-              ? "border-charcoal/[0.06] bg-charcoal/[0.03]"
-              : "border-emerald-200/60 bg-emerald-50/70"
+              ? "border-charcoal/[0.06] bg-white/80"
+              : "border-emerald-200/60 bg-emerald-50/85"
           }`}
         >
           {toast.type === "error" ? (
@@ -204,8 +289,8 @@ function MonasticLanding({ onIgnite, reduceMotion }) {
     <motion.div
       key="landing"
       className="relative z-10 flex w-full max-w-lg flex-col items-center px-6 text-center"
-      exit={{ opacity: 0, scale: 0.96 }}
-      transition={{ duration: 0.4, ease: EASE_LUXE }}
+      exit={{ opacity: 0, scale: 0.96, filter: "blur(6px)" }}
+      transition={{ duration: 0.48, ease: EASE_APPLE }}
     >
       <motion.div
         layoutId="flow-shield"
@@ -286,7 +371,6 @@ function MonasticLanding({ onIgnite, reduceMotion }) {
  */
 function AuthMorphCanvas({
   isSignUp,
-  setIsSignUp,
   name,
   setName,
   email,
@@ -302,23 +386,69 @@ function AuthMorphCanvas({
   onSubmit,
   reduceMotion,
   googleHiddenRef,
+  signupCelebrating,
+  onToggleMode,
 }) {
   return (
     <motion.div
       key="auth-canvas"
       layout
-      initial={{ opacity: 0, scale: 0.98 }}
+      initial={reduceMotion ? { opacity: 0 } : CARD_ENTRANCE.initial}
       animate={
-        shakeCard && !reduceMotion
-          ? { opacity: 1, scale: 1, ...CARD_SHAKE }
-          : { opacity: 1, scale: 1, x: 0 }
+        signupCelebrating && !reduceMotion
+          ? { ...CARD_ENTRANCE.animate, scale: 1.02 }
+          : shakeCard && !reduceMotion
+            ? { ...CARD_ENTRANCE.animate, ...CARD_SHAKE }
+            : CARD_ENTRANCE.animate
       }
       transition={SPRING_CARD}
-      className="relative z-10 w-full max-w-[460px] max-h-[calc(100svh-2rem)] overflow-y-auto rounded-[2rem] border border-black/[0.04] bg-white/55 p-6 shadow-[0_4px_60px_rgba(26,26,26,0.05),0_1px_0_rgba(255,255,255,0.8)_inset] backdrop-blur-2xl sm:max-h-[calc(100svh-3rem)] sm:p-8 lg:p-10"
+      className="auth-card auth-card-compact relative z-10 w-full max-w-[440px] overflow-hidden rounded-[1.75rem] border border-black/[0.04] bg-white/60 p-5 shadow-[0_4px_60px_rgba(26,26,26,0.06),0_1px_0_rgba(255,255,255,0.85)_inset] backdrop-blur-2xl sm:rounded-[2rem] sm:p-7 lg:p-9"
     >
-      <AuthToast toast={toast} onDismiss={() => setToast(null)} />
+      <AnimatePresence>
+        {signupCelebrating && (
+          <motion.div
+            key="signup-celebration"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4, ease: EASE_APPLE }}
+            className="absolute inset-0 z-30 flex items-center justify-center rounded-[inherit] bg-white/80 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.82, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={SPRING_CARD}
+              className="flex flex-col items-center gap-3 px-6 text-center"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ ...SPRING_CARD, delay: 0.08 }}
+                className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50"
+              >
+                <CheckCircle2 size={34} className="text-emerald-600" strokeWidth={1.5} />
+              </motion.div>
+              <p className="font-display text-xl font-semibold tracking-tight text-charcoal">
+                You&apos;re in
+              </p>
+              <p className="text-[13px] tracking-wide text-charcoal/50">
+                Preparing your workspace…
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <div className="pointer-events-none absolute inset-x-5 top-4 z-20 sm:inset-x-7">
+        <div className="pointer-events-auto">
+          <AuthToast toast={toast} onDismiss={() => setToast(null)} />
+        </div>
+      </div>
 
-      <motion.header layout transition={SPRING_GLIDE} className="mb-8 text-center">
+      <motion.header
+        layout
+        transition={SPRING_GLIDE}
+        className="auth-card-header mb-6 text-center sm:mb-7"
+      >
         <motion.div
           layoutId="flow-shield"
           className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-charcoal/[0.05] bg-white/50 shadow-[0_4px_24px_rgba(26,26,26,0.05)]"
@@ -333,37 +463,43 @@ function AuthMorphCanvas({
           TaskFlow · Monastic
         </motion.p>
 
-        <AnimatePresence mode="popLayout" initial={false}>
-          <motion.h1
-            key={isSignUp ? "signup-title" : "signin-title"}
-            layoutId="flow-title"
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={isSignUp ? "signup-copy" : "signin-copy"}
             layout
-            variants={FIELD_CROSSFADE}
             initial="initial"
             animate="animate"
             exit="exit"
-            transition={MORPH_TWEEN}
-            className="mt-3 font-display text-[1.65rem] font-semibold tracking-[-0.02em] text-charcoal"
+            variants={{
+              initial: { opacity: 0 },
+              animate: {
+                opacity: 1,
+                transition: { staggerChildren: 0.06, delayChildren: 0.02 },
+              },
+              exit: {
+                opacity: 0,
+                transition: { duration: 0.2, ease: EASE_APPLE },
+              },
+            }}
           >
-            {isSignUp ? "Claim your space" : "Return to flow"}
-          </motion.h1>
-        </AnimatePresence>
-
-        <AnimatePresence mode="popLayout" initial={false}>
-          <motion.p
-            key={isSignUp ? "signup-sub" : "signin-sub"}
-            layout
-            variants={FIELD_CROSSFADE}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            transition={{ ...MORPH_TWEEN, delay: 0.04 }}
-            className="mt-2 text-[13px] tracking-[0.06em] text-charcoal/48"
-          >
-            {isSignUp
-              ? "One threshold between noise and clarity."
-              : "Resume where your focus left off."}
-          </motion.p>
+            <motion.h1
+              layoutId="flow-title"
+              variants={FIELD_CROSSFADE}
+              transition={MORPH_TWEEN}
+              className="mt-3 font-display text-[1.5rem] font-semibold tracking-[-0.02em] text-charcoal sm:text-[1.65rem]"
+            >
+              {isSignUp ? "Claim your space" : "Return to flow"}
+            </motion.h1>
+            <motion.p
+              variants={FIELD_CROSSFADE}
+              transition={{ ...MORPH_TWEEN, delay: 0.05 }}
+              className="mt-1.5 text-[12px] tracking-[0.06em] text-charcoal/48 sm:mt-2 sm:text-[13px]"
+            >
+              {isSignUp
+                ? "One threshold between noise and clarity."
+                : "Resume where your focus left off."}
+            </motion.p>
+          </motion.div>
         </AnimatePresence>
       </motion.header>
 
@@ -386,10 +522,10 @@ function AuthMorphCanvas({
           layout
           onClick={onGoogleClick}
           disabled={googleLoading}
-          whileHover={reduceMotion ? undefined : { scale: 1.01, y: -1 }}
-          whileTap={reduceMotion ? undefined : { scale: 0.99 }}
+          whileHover={reduceMotion ? undefined : { scale: 1.008, y: -1 }}
+          whileTap={reduceMotion ? undefined : { scale: 0.985, y: 0 }}
           transition={SPRING_GLIDE}
-          className="auth-google-shimmer group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl border border-black/[0.05] bg-white px-5 py-4 text-[15px] font-medium tracking-[0.04em] text-charcoal shadow-[0_2px_16px_rgba(26,26,26,0.06)] transition-shadow duration-300 hover:shadow-[0_8px_32px_rgba(26,26,26,0.09)] disabled:opacity-65"
+          className="auth-google-shimmer group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl border border-black/[0.05] bg-white px-5 py-3.5 text-[14px] font-medium tracking-[0.04em] text-charcoal shadow-[0_2px_16px_rgba(26,26,26,0.06)] transition-shadow duration-500 hover:shadow-[0_8px_32px_rgba(26,26,26,0.09)] disabled:opacity-65 sm:py-4 sm:text-[15px]"
         >
           {googleLoading ? (
             <Loader2 size={20} className="animate-spin text-charcoal/45" />
@@ -406,7 +542,7 @@ function AuthMorphCanvas({
         initial="hidden"
         animate="show"
         layout
-        className="my-7 flex items-center gap-4"
+        className="auth-card-divider my-5 flex items-center gap-4 sm:my-6"
       >
         <span className="h-px flex-1 bg-gradient-to-r from-transparent via-charcoal/[0.08] to-transparent" />
         <span className="text-[10px] font-medium uppercase tracking-[0.24em] text-charcoal/32">
@@ -416,7 +552,7 @@ function AuthMorphCanvas({
       </motion.div>
 
       <form onSubmit={onSubmit}>
-        <motion.div layout transition={SPRING_GLIDE} className="space-y-1">
+        <motion.div layout transition={SPRING_GLIDE} className="space-y-0.5">
           <AnimatePresence mode="popLayout" initial={false}>
             {isSignUp && (
               <motion.div
@@ -427,7 +563,7 @@ function AuthMorphCanvas({
                 animate="animate"
                 exit="exit"
                 transition={MORPH_TWEEN}
-                className="mb-3"
+                className="mb-1 sm:mb-2"
               >
                 <FloatingField
                   id="auth-name"
@@ -441,7 +577,7 @@ function AuthMorphCanvas({
             )}
           </AnimatePresence>
 
-          <motion.div layout transition={SPRING_GLIDE} className="space-y-3">
+          <motion.div layout transition={SPRING_GLIDE} className="space-y-2 sm:space-y-3">
             <FloatingField
               id="auth-email"
               label="Email address"
@@ -450,10 +586,9 @@ function AuthMorphCanvas({
               onChange={setEmail}
               autoComplete="email"
             />
-            <FloatingField
+            <PasswordFloatingField
               id="auth-password"
               label={isSignUp ? "Create password" : "Password"}
-              type="password"
               value={password}
               onChange={setPassword}
               autoComplete={isSignUp ? "new-password" : "current-password"}
@@ -469,9 +604,10 @@ function AuthMorphCanvas({
           initial="hidden"
           animate="show"
           disabled={formLoading}
-          whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+          whileHover={reduceMotion ? undefined : { scale: 1.008 }}
+          whileTap={reduceMotion ? undefined : { scale: 0.985 }}
           transition={SPRING_GLIDE}
-          className="auth-submit-shimmer relative mt-8 w-full overflow-hidden rounded-2xl bg-charcoal py-4 font-display text-[12px] font-semibold uppercase tracking-[0.22em] text-white disabled:opacity-70"
+          className="auth-submit-shimmer relative mt-6 w-full overflow-hidden rounded-2xl bg-charcoal py-3.5 font-display text-[11px] font-semibold uppercase tracking-[0.22em] text-white disabled:opacity-70 sm:mt-7 sm:py-4 sm:text-[12px]"
         >
           <span className="relative z-10 flex items-center justify-center gap-2">
             {formLoading && <Loader2 size={15} className="animate-spin opacity-80" />}
@@ -489,19 +625,29 @@ function AuthMorphCanvas({
       <motion.p
         layout
         transition={SPRING_GLIDE}
-        className="mt-8 text-center text-[13px] tracking-[0.05em] text-charcoal/45"
+        className="auth-card-footer mt-6 text-center text-[12px] tracking-[0.05em] text-charcoal/45 sm:mt-7 sm:text-[13px]"
       >
-        {isSignUp ? "Already in the sanctuary?" : "First crossing?"}{" "}
-        <button
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.span
+            key={isSignUp ? "toggle-signin" : "toggle-signup"}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.32, ease: EASE_APPLE }}
+          >
+            {isSignUp ? "Already in the sanctuary?" : "First crossing?"}{" "}
+          </motion.span>
+        </AnimatePresence>
+        <motion.button
           type="button"
-          onClick={() => {
-            setIsSignUp((v) => !v);
-            setToast(null);
-          }}
-          className="font-medium text-charcoal underline decoration-charcoal/15 underline-offset-[5px] transition hover:decoration-charcoal/45"
+          layout
+          onClick={onToggleMode}
+          whileTap={reduceMotion ? undefined : { scale: 0.97 }}
+          transition={SPRING_GLIDE}
+          className="font-medium text-charcoal underline decoration-charcoal/15 underline-offset-[5px] transition-colors duration-300 hover:decoration-charcoal/45"
         >
           {isSignUp ? "Sign in" : "Sign up"}
-        </button>
+        </motion.button>
       </motion.p>
     </motion.div>
   );
@@ -525,7 +671,9 @@ export default function AuthPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [gsiScriptLoaded, setGsiScriptLoaded] = useState(false);
+  const [signupCelebrating, setSignupCelebrating] = useState(false);
 
+  const setUserProfile = useTaskStore((s) => s.setUserProfile);
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
   const showError = useCallback((message) => {
@@ -542,6 +690,13 @@ export default function AuthPage() {
     const t = setTimeout(() => setShakeCard(false), 520);
     return () => clearTimeout(t);
   }, [shakeCard]);
+
+  useEffect(() => {
+    document.documentElement.classList.add("auth-page-scroll");
+    return () => {
+      document.documentElement.classList.remove("auth-page-scroll");
+    };
+  }, []);
 
   const handleGoogleCredential = useCallback(
     async (credential) => {
@@ -568,14 +723,21 @@ export default function AuthPage() {
           return;
         }
 
+        if (data.user) {
+          setUserProfile({
+            name: data.user.name,
+            avatar: data.user.avatar || "",
+          });
+        }
+
         showSuccess("Welcome. Crossing into your workspace…");
-        router.push("/productivity/dashboard");
+        router.push("/dashboard");
       } catch {
         showError("Network error. Please check your connection.");
         setGoogleLoading(false);
       }
     },
-    [router, showError, showSuccess]
+    [router, setUserProfile, showError, showSuccess]
   );
 
   const initGoogleIdentity = useCallback(() => {
@@ -654,6 +816,7 @@ export default function AuthPage() {
     e.preventDefault();
     setFormLoading(true);
     setToast(null);
+    setSignupCelebrating(false);
 
     const endpoint = isSignUp ? "/api/auth/signup" : "/api/auth/login";
     const payload = isSignUp
@@ -664,6 +827,7 @@ export default function AuthPage() {
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
@@ -677,8 +841,22 @@ export default function AuthPage() {
         return;
       }
 
-      showSuccess(isSignUp ? "Account ready. Entering sanctuary…" : "Welcome back. Entering sanctuary…");
-      router.push("/productivity/dashboard");
+      if (data.user) {
+        setUserProfile({
+          name: data.user.name,
+          avatar: data.user.avatar || "",
+        });
+      }
+
+      if (isSignUp) {
+        setFormLoading(false);
+        setSignupCelebrating(true);
+        window.setTimeout(() => router.push("/dashboard"), 1200);
+        return;
+      }
+
+      showSuccess("Welcome back. Entering sanctuary…");
+      window.setTimeout(() => router.push("/dashboard"), 650);
     } catch {
       showError("Something went wrong. Please try again.");
       setFormLoading(false);
@@ -693,41 +871,51 @@ export default function AuthPage() {
         onLoad={() => setGsiScriptLoaded(true)}
       />
 
-      <div className="relative flex min-h-[100svh] w-full items-center justify-center overflow-hidden px-4 py-6 sm:px-6 sm:py-8 lg:min-h-screen lg:py-12">
-        <AmbientCanvas reduceMotion={!!reduceMotion} />
+      <div className="auth-page-shell">
+        <div className="pointer-events-none fixed inset-0 z-0">
+          <AmbientCanvas reduceMotion={!!reduceMotion} />
+        </div>
 
-        <LayoutGroup id="auth-flow">
-          <AnimatePresence mode="popLayout" initial={false}>
-            {!entered ? (
-              <MonasticLanding
-                key="landing"
-                onIgnite={() => setEntered(true)}
-                reduceMotion={!!reduceMotion}
-              />
-            ) : (
-              <AuthMorphCanvas
-                key="auth"
+        <div className="auth-page-content relative z-10 flex min-h-[100dvh] w-full items-center justify-center px-4 py-8 sm:px-6 sm:py-10">
+          <LayoutGroup id="auth-flow">
+            <AnimatePresence mode="popLayout" initial={false}>
+              {!entered ? (
+                <MonasticLanding
+                  key="landing"
+                  onIgnite={() => setEntered(true)}
+                  reduceMotion={!!reduceMotion}
+                />
+              ) : (
+                <AuthMorphCanvas
+                  key="auth"
                 isSignUp={isSignUp}
-                setIsSignUp={setIsSignUp}
                 name={name}
-                setName={setName}
-                email={email}
-                setEmail={setEmail}
-                password={password}
-                setPassword={setPassword}
-                toast={toast}
-                setToast={setToast}
-                shakeCard={shakeCard}
-                formLoading={formLoading}
-                googleLoading={googleLoading}
-                onGoogleClick={triggerGoogleSignIn}
-                onSubmit={handleEmailSubmit}
-                reduceMotion={!!reduceMotion}
-                googleHiddenRef={googleHiddenRef}
-              />
-            )}
-          </AnimatePresence>
-        </LayoutGroup>
+                  setName={setName}
+                  email={email}
+                  setEmail={setEmail}
+                  password={password}
+                  setPassword={setPassword}
+                  toast={toast}
+                  setToast={setToast}
+                  shakeCard={shakeCard}
+                  formLoading={formLoading}
+                  googleLoading={googleLoading}
+                  onGoogleClick={triggerGoogleSignIn}
+                  onSubmit={handleEmailSubmit}
+                  reduceMotion={!!reduceMotion}
+                  googleHiddenRef={googleHiddenRef}
+                  signupCelebrating={signupCelebrating}
+                  onToggleMode={() => {
+                    setIsSignUp((v) => !v);
+                    setToast(null);
+                    setPassword("");
+                    setSignupCelebrating(false);
+                  }}
+                />
+              )}
+            </AnimatePresence>
+          </LayoutGroup>
+        </div>
       </div>
     </>
   );

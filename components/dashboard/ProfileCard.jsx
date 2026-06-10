@@ -1,8 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 import { ChevronDown, Laptop, Wallet, Heart, PiggyBank } from "lucide-react";
 import { useState } from "react";
+import { useTaskStore } from "@/store/useTaskStore";
 
 const ACCORDION = [
   { id: "pension", label: "Focus sessions", icon: PiggyBank },
@@ -13,6 +15,8 @@ const ACCORDION = [
 
 export function ProfileCard() {
   const [openId, setOpenId] = useState("devices");
+  const userName = useTaskStore((s) => s.userName);
+  const userAvatar = useTaskStore((s) => s.userAvatar);
 
   return (
     <div className="flex flex-col gap-4">
@@ -20,11 +24,22 @@ export function ProfileCard() {
         layout
         className="glass-card relative overflow-hidden p-0"
       >
-        <div className="aspect-[4/5] bg-gradient-to-br from-cream-200 via-gold-light/40 to-charcoal/10" />
+        <div className="relative aspect-[4/5] bg-gradient-to-br from-cream-200 via-gold-light/40 to-charcoal/10">
+          {userAvatar ? (
+            <Image
+              src={userAvatar}
+              alt={userName ? `${userName}'s profile` : "Profile"}
+              fill
+              className="object-cover"
+              sizes="(max-width: 1024px) 100vw, 25vw"
+              unoptimized
+            />
+          ) : null}
+        </div>
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-charcoal/80 to-transparent p-5 pt-16">
           <div className="rounded-2xl border border-white/20 bg-white/20 p-4 backdrop-blur-md">
             <p className="font-display text-lg font-semibold text-white">
-              Your workspace
+              {userName || "Your workspace"}
             </p>
             <p className="text-sm text-white/70">Productivity hub</p>
             <span className="mt-2 inline-block rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-charcoal">
