@@ -93,7 +93,7 @@ export function useKanbanDrag({ onDrop, onHoverStatus }) {
       if (highlightElRef.current === nextEl) return;
 
       clearHighlight();
-      if (nextEl) {
+      if (nextEl && !nextEl.hasAttribute("data-no-drop-highlight")) {
         nextEl.classList.add(DROP_ACTIVE_CLASS);
         highlightElRef.current = nextEl;
       }

@@ -130,6 +130,10 @@ body.kanban-drag-active .kanban-drop-zone {
   isolation: auto;
 }
 
+body.kanban-drag-active .glass-card-dark {
+  overflow: visible;
+}
+
 .kanban-drop-active {
   @apply ring-2 ring-gold/50 shadow-[0_16px_48px_rgba(250,204,21,0.18)];
   transform: scale(1.01);

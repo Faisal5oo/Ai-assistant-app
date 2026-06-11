@@ -99,13 +99,12 @@ export function KanbanBoard() {
 
       if (status === sourceStatus) {
         if (startIndex < 0) return;
-        let endIndex = dropIndex;
-        if (endIndex > startIndex) endIndex -= 1;
+        const without = sourceTasks.filter((t) => t.id !== taskId);
+        const endIndex = Math.max(0, Math.min(dropIndex, without.length));
         if (endIndex === startIndex) return;
 
-        const nextColumn = [...sourceTasks];
-        const [moved] = nextColumn.splice(startIndex, 1);
-        nextColumn.splice(endIndex, 0, moved);
+        const nextColumn = [...without];
+        nextColumn.splice(endIndex, 0, sourceTasks[startIndex]);
         syncColumn(status, nextColumn);
         return;
       }
@@ -115,7 +114,7 @@ export function KanbanBoard() {
       if (!task) return;
 
       const column = without.filter((t) => t.status === status);
-      const clamped = Math.max(0, Math.min(dropIndex, columnTasks.length));
+      const clamped = Math.max(0, Math.min(dropIndex, column.length));
       column.splice(clamped, 0, { ...task, status });
 
       const sourceColumn = sourceStatus

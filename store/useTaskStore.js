@@ -13,6 +13,8 @@ import {
   reorderTasksImperative,
   deleteTaskImperative,
 } from "@/lib/imperative-mutations";
+import { activateFocusTaskImperative } from "@/lib/activateFocusTaskImperative";
+import { syncTimerForStatusChange } from "@/lib/taskStatusTimerSync";
 
 /**
  * @typedef {import('@/types/interfaces').ActiveTimer} ActiveTimer
@@ -65,7 +67,12 @@ export const useTaskStore = create((set, get) => ({
   },
 
   moveTaskStatus: (id, status) => {
+    const task = getTasksFromCache().find((t) => t.id === id);
+    const previousStatus = task?.status;
+    if (!previousStatus || previousStatus === status) return;
+
     updateTaskImperative(id, { status });
+    syncTimerForStatusChange(id, previousStatus, status);
   },
 
   reorderTasks: (columnId, startIndex, endIndex) => {
@@ -123,29 +130,7 @@ export const useTaskStore = create((set, get) => ({
   },
 
   startTimer: (taskId, options = {}) => {
-    const { activeTimer } = get();
-    if (activeTimer.isRunning && activeTimer.taskId) {
-      get().pauseTimer();
-    }
-
-    const task = getTasksFromCache().find((t) => t.id === taskId);
-    if (!task) return;
-
-    if (task.status === "Todo") {
-      get().moveTaskStatus(taskId, "In-Progress");
-    }
-
-    set({
-      activeTimer: {
-        taskId,
-        isRunning: true,
-        startedAt: Date.now(),
-        elapsedMs: 0,
-        mode: options.mode ?? "work",
-        targetMs: options.targetMs,
-      },
-      activeTechnique: options.technique ?? null,
-    });
+    activateFocusTaskImperative(taskId, options);
   },
 
   pauseTimer: () => {
@@ -187,11 +172,12 @@ export const useTaskStore = create((set, get) => ({
     }
 
     const taskId = activeTimer.taskId;
+
     set({ activeTimer: initialTimer(), activeTechnique: null });
 
-    if (sessionMs <= 0) return;
-
-    recordTaskTimeImperative(taskId, sessionMs, todayKey());
+    if (sessionMs > 0) {
+      recordTaskTimeImperative(taskId, sessionMs, todayKey());
+    }
   },
 
   tickTimer: () => {

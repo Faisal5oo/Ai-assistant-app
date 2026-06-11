@@ -6,10 +6,12 @@ import {
   GripVertical,
   Hourglass,
   Pencil,
+  Play,
   Tag,
   Timer,
   Trash2,
 } from "lucide-react";
+import { FocusQueueBadge } from "@/components/tasks/FocusQueueBadge";
 import { formatMsToHoursMinutes } from "@/lib/utils";
 import { KANBAN_MORPH_SPRING } from "@/lib/kanban";
 
@@ -35,6 +37,10 @@ const CATEGORY_STYLES = {
  * @param {import('@/types/interfaces').Task} props.task
  * @param {import('@/types/interfaces').TaskStatus} props.status
  * @param {boolean} props.isDragging
+ * @param {boolean} [props.isFocusRunning]
+ * @param {boolean} [props.isFocusPaused]
+ * @param {boolean} [props.isInQueue]
+ * @param {() => void} [props.onActivate]
  * @param {(taskId: string, title: string, x: number, y: number, sourceStatus: string) => void} props.onDragStart
  * @param {() => void} props.onEdit
  * @param {() => void} props.onDelete
@@ -43,6 +49,10 @@ export function TaskCard({
   task,
   status,
   isDragging,
+  isFocusRunning = false,
+  isFocusPaused = false,
+  isInQueue = false,
+  onActivate,
   onDragStart,
   onEdit,
   onDelete,
@@ -123,9 +133,13 @@ export function TaskCard({
           layout
           drag={false}
           onPointerDown={handlePointerDown}
-          className={`glass-card group relative w-full cursor-grab border-l-4 p-4 active:cursor-grabbing [touch-action:none] [-webkit-user-drag:none] ${
+          className={`glass-card group relative w-full cursor-grab overflow-visible border-l-4 p-4 active:cursor-grabbing [touch-action:none] [-webkit-user-drag:none] ${
             isDragging ? "invisible" : ""
-          } ${CATEGORY_STYLES[task.category]}`}
+          } ${CATEGORY_STYLES[task.category]} ${
+            isFocusRunning
+              ? "ring-2 ring-gold/55 shadow-[0_0_24px_rgba(250,204,21,0.2)]"
+              : ""
+          }`}
           style={{
             WebkitTouchCallout: "none",
             userSelect: "none",
@@ -142,6 +156,8 @@ export function TaskCard({
             <h4 className="min-w-0 flex-1 font-display text-sm font-semibold leading-snug tracking-tight text-charcoal">
               {task.title}
             </h4>
+            {isFocusPaused && <FocusQueueBadge variant="paused" />}
+            {isInQueue && <FocusQueueBadge variant="queued" />}
           </div>
 
           <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-charcoal/55">
@@ -181,6 +197,16 @@ export function TaskCard({
           </p>
 
           <div className="flex gap-2" data-kanban-no-drag>
+            {(isInQueue || isFocusPaused) && onActivate && (
+              <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={onActivate}
+                className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-gold/25 py-2 text-xs font-medium text-charcoal transition hover:bg-gold/40"
+              >
+                <Play size={12} /> Focus
+              </button>
+            )}
             <button
               type="button"
               onPointerDown={(e) => e.stopPropagation()}

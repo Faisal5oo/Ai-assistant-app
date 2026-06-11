@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTaskStore } from "@/store/useTaskStore";
+import { GlobalTimerTick } from "@/components/timer/GlobalTimerTick";
 import { Sidebar } from "./Sidebar";
 import { TopNav } from "./TopNav";
 
@@ -32,6 +33,7 @@ export function AppShell({ children }) {
 
   return (
     <div className="flex min-h-screen">
+      <GlobalTimerTick />
       <AnimatePresence initial={false}>
         {showPeripherals && (
           <motion.div

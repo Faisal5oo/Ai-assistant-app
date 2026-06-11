@@ -4,6 +4,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { tasksApi, dashboardApi } from "@/lib/api-client";
 import { applyColumnReorder } from "@/lib/kanbanDragUtils";
 import { queryKeys } from "@/lib/query-keys";
+import {
+  captureTimerSnapshot,
+  restoreTimerSnapshot,
+  diffAndSyncTimer,
+  syncTimerForStatusChange,
+} from "@/lib/taskStatusTimerSync";
 import { appToast } from "@/lib/toast";
 
 /** @param {Record<string, unknown>} updates */
@@ -45,18 +51,25 @@ export function useUpdateTaskMutation(options = {}) {
       tasksApi.update(id, toApiTaskUpdates(updates)).then((r) => r.task),
     onMutate: async ({ id, updates }) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.tasks });
-      const previous = queryClient.getQueryData(queryKeys.tasks);
+      const previous = queryClient.getQueryData(queryKeys.tasks) ?? [];
+      const timerSnapshot = captureTimerSnapshot();
+      const prevTask = previous.find((t) => t.id === id);
 
       queryClient.setQueryData(queryKeys.tasks, (prev) =>
         (prev ?? []).map((t) => (t.id === id ? { ...t, ...updates } : t))
       );
 
-      return { previous };
+      if (updates.status && prevTask) {
+        syncTimerForStatusChange(id, prevTask.status, updates.status);
+      }
+
+      return { previous, timerSnapshot };
     },
     onError: (error, _vars, context) => {
       if (context?.previous) {
         queryClient.setQueryData(queryKeys.tasks, context.previous);
       }
+      restoreTimerSnapshot(context?.timerSnapshot);
       if (!silent) {
         appToast.error(error, "Could not update task.");
       }
@@ -103,36 +116,31 @@ export function useToggleTaskCompleteMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id) => {
-      const tasks = queryClient.getQueryData(queryKeys.tasks) ?? [];
-      const task = tasks.find((t) => t.id === id);
-      if (!task) throw new Error("Task not found.");
-      const nextStatus =
-        task.status === "Completed" ? "Todo" : "Completed";
-      const { task: updated } = await tasksApi.update(id, {
-        status: nextStatus,
-      });
+    mutationFn: async ({ id, nextStatus }) => {
+      const { task: updated } = await tasksApi.update(id, { status: nextStatus });
       return updated;
     },
-    onMutate: async (id) => {
+    onMutate: async ({ id, nextStatus }) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.tasks });
-      const previous = queryClient.getQueryData(queryKeys.tasks);
+      const previous = queryClient.getQueryData(queryKeys.tasks) ?? [];
+      const timerSnapshot = captureTimerSnapshot();
+      const prevTask = previous.find((t) => t.id === id);
 
       queryClient.setQueryData(queryKeys.tasks, (prev) =>
-        (prev ?? []).map((t) => {
-          if (t.id !== id) return t;
-          const nextStatus =
-            t.status === "Completed" ? "Todo" : "Completed";
-          return { ...t, status: nextStatus };
-        })
+        (prev ?? []).map((t) => (t.id === id ? { ...t, status: nextStatus } : t))
       );
 
-      return { previous };
+      if (prevTask) {
+        syncTimerForStatusChange(id, prevTask.status, nextStatus);
+      }
+
+      return { previous, timerSnapshot };
     },
-    onError: (error, _id, context) => {
+    onError: (error, _vars, context) => {
       if (context?.previous) {
         queryClient.setQueryData(queryKeys.tasks, context.previous);
       }
+      restoreTimerSnapshot(context?.timerSnapshot);
       appToast.error(error, "Could not update task.");
     },
     onSuccess: (task) => {
@@ -151,19 +159,21 @@ export function useReorderTasksMutation() {
       tasksApi.reorder({ columnId, taskIds, sourceColumnId, sourceTaskIds }),
     onMutate: async ({ columnId, taskIds }) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.tasks });
-      const previous = queryClient.getQueryData(queryKeys.tasks);
+      const previous = queryClient.getQueryData(queryKeys.tasks) ?? [];
+      const timerSnapshot = captureTimerSnapshot();
+      const next = applyColumnReorder(previous, columnId, taskIds);
 
-      queryClient.setQueryData(queryKeys.tasks, (prev) =>
-        applyColumnReorder(prev ?? [], columnId, taskIds)
-      );
+      queryClient.setQueryData(queryKeys.tasks, next);
+      diffAndSyncTimer(previous, next);
 
-      return { previous };
+      return { previous, timerSnapshot };
     },
     onError: (error, _vars, context) => {
       if (context?.previous) {
         queryClient.setQueryData(queryKeys.tasks, context.previous);
       }
-      appToast.error(error, "Could not reorder tasks.");
+      restoreTimerSnapshot(context?.timerSnapshot);
+      appToast.error(error, "Could not reorder tasks. Changes were reverted.");
     },
   });
 }

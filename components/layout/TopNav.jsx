@@ -1,19 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Bell, Loader2, LogOut, Settings } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { ActiveTaskStatusBar } from "@/components/timer/ActiveTaskStatusBar";
 import { useTaskStore } from "@/store/useTaskStore";
-
-const TOP_LINKS = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/tasks", label: "Tasks" },
-  { href: "/analytics", label: "Analytics" },
-  { href: "/productivity", label: "Techniques" },
-];
 
 function UserAvatar({ name, avatar }) {
   const initial = (name || "?").charAt(0).toUpperCase();
@@ -40,7 +33,6 @@ function UserAvatar({ name, avatar }) {
 
 export function TopNav() {
   const router = useRouter();
-  const pathname = usePathname();
   const userName = useTaskStore((s) => s.userName);
   const userAvatar = useTaskStore((s) => s.userAvatar);
   const clearUserProfile = useTaskStore((s) => s.clearUserProfile);
@@ -65,27 +57,16 @@ export function TopNav() {
   };
 
   return (
-    <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
-      <div className="hidden rounded-full bg-white px-5 py-2.5 shadow-glass md:block">
+    <header className="mb-6 grid grid-cols-[auto_1fr_auto] items-center gap-3 md:gap-4">
+      <div className="hidden shrink-0 rounded-full bg-white px-5 py-2.5 shadow-glass md:block">
         <span className="font-display font-semibold">TaskFlow</span>
       </div>
 
-      <nav className="glass-card hidden flex-1 items-center justify-center gap-1 px-2 py-2 md:flex lg:max-w-xl">
-        {TOP_LINKS.map(({ href, label }) => {
-          const active = pathname === href;
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={active ? "nav-pill-active" : "nav-pill"}
-            >
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
+      <div className="flex min-w-0 items-center justify-center px-1">
+        <ActiveTaskStatusBar />
+      </div>
 
-      <div className="ml-auto flex items-center gap-2 md:ml-0">
+      <div className="flex shrink-0 items-center justify-end gap-2">
         <button type="button" className="pill-btn-ghost hidden sm:inline-flex">
           <Settings size={16} />
           Setting
