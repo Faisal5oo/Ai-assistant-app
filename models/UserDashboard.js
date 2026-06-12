@@ -37,6 +37,24 @@ const PomodoroDailySchema = new mongoose.Schema(
   { _id: false }
 );
 
+const ActiveFocusSessionSchema = new mongoose.Schema(
+  {
+    taskId: { type: String, required: true },
+    isRunning: { type: Boolean, default: false },
+    startedAt: { type: Number, default: 0 },
+    elapsedMs: { type: Number, default: 0, min: 0 },
+    mode: {
+      type: String,
+      enum: ["work", "pomodoro", "deep-work", "flow"],
+      default: "work",
+    },
+    targetMs: { type: Number },
+    activeTechnique: { type: String, default: null },
+    updatedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const UserDashboardSchema = new mongoose.Schema(
   {
     userId: {
@@ -53,6 +71,10 @@ const UserDashboardSchema = new mongoose.Schema(
     pomodoroDaily: {
       type: PomodoroDailySchema,
       required: true,
+    },
+    activeFocusSession: {
+      type: ActiveFocusSessionSchema,
+      default: undefined,
     },
   },
   {

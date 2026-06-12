@@ -47,11 +47,24 @@ export async function POST(request, { params }) {
     await connectDB();
 
     const date = parsed.data.date ?? serverTodayKey();
-    const { durationMs } = parsed.data;
+    const { durationMs, startedAt, stoppedAt } = parsed.data;
+
+    const stoppedDate = stoppedAt ? new Date(stoppedAt) : new Date();
+    const startedDate = startedAt
+      ? new Date(startedAt)
+      : new Date(stoppedDate.getTime() - durationMs);
 
     const task = await Task.findOneAndUpdate(
       { _id: id, userId: auth.id },
-      { $inc: { actualTimeSpent: durationMs } },
+      {
+        $inc: { actualTimeSpent: durationMs },
+        $push: {
+          timeLogs: {
+            startedAt: startedDate,
+            stoppedAt: stoppedDate,
+          },
+        },
+      },
       { new: true, runValidators: true }
     );
 

@@ -1,35 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Bell, Loader2, LogOut, Settings } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ActiveTaskStatusBar } from "@/components/timer/ActiveTaskStatusBar";
+import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useTaskStore } from "@/store/useTaskStore";
-
-function UserAvatar({ name, avatar }) {
-  const initial = (name || "?").charAt(0).toUpperCase();
-
-  if (avatar) {
-    return (
-      <Image
-        src={avatar}
-        alt={name ? `${name}'s profile` : "Profile"}
-        width={44}
-        height={44}
-        className="h-11 w-11 rounded-full object-cover"
-        unoptimized
-      />
-    );
-  }
-
-  return (
-    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-gold-light to-gold text-sm font-semibold text-charcoal">
-      {initial}
-    </div>
-  );
-}
 
 export function TopNav() {
   const router = useRouter();

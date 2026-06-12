@@ -1,6 +1,30 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { Pause, Play, RotateCcw, SkipForward } from "lucide-react";
+
+const SPRING = { type: "spring", stiffness: 380, damping: 22 };
+
+function PillButton({ onClick, children, variant = "ghost", className = "" }) {
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      whileHover={{ scale: 1.04, boxShadow: "0 6px 28px rgba(0,0,0,0.10)" }}
+      whileTap={{ scale: 0.95 }}
+      transition={SPRING}
+      className={[
+        "inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50",
+        variant === "gold"
+          ? "bg-gold text-charcoal hover:bg-gold-dark shadow-[0_2px_18px_rgba(250,204,21,0.30)]"
+          : "pill-btn-ghost",
+        className,
+      ].filter(Boolean).join(" ")}
+    >
+      {children}
+    </motion.button>
+  );
+}
 
 /**
  * @param {Object} props
@@ -10,40 +34,30 @@ import { Pause, Play, RotateCcw, SkipForward } from "lucide-react";
  * @param {() => void} props.onReset
  * @param {() => void} props.onSkip
  */
-export function TimerControls({
-  isRunning,
-  onStart,
-  onPause,
-  onReset,
-  onSkip,
-}) {
+export function TimerControls({ isRunning, onStart, onPause, onReset, onSkip }) {
   return (
     <div className="flex flex-wrap items-center justify-center gap-3">
-      <button
-        type="button"
+      <PillButton
+        variant="gold"
         onClick={isRunning ? onPause : onStart}
-        className="pill-btn-gold min-w-[140px]"
+        className="min-w-[148px]"
       >
         {isRunning ? (
-          <>
-            <Pause size={18} />
-            Pause
-          </>
+          <><Pause size={16} strokeWidth={2.5} />Pause</>
         ) : (
-          <>
-            <Play size={18} />
-            Start
-          </>
+          <><Play size={16} strokeWidth={2.5} />Start Focus</>
         )}
-      </button>
-      <button type="button" onClick={onSkip} className="pill-btn-ghost">
-        <SkipForward size={16} />
+      </PillButton>
+
+      <PillButton onClick={onSkip}>
+        <SkipForward size={14} strokeWidth={2} />
         Skip
-      </button>
-      <button type="button" onClick={onReset} className="pill-btn-ghost">
-        <RotateCcw size={16} />
+      </PillButton>
+
+      <PillButton onClick={onReset}>
+        <RotateCcw size={14} strokeWidth={2} />
         Reset
-      </button>
+      </PillButton>
     </div>
   );
 }

@@ -56,7 +56,8 @@ export async function PATCH(request) {
     await connectDB();
 
     const dashboard = await getOrCreateDashboard(auth.id);
-    const { addDailyMs, pomodoroDaily, pomodoroIncrement } = parsed.data;
+    const { addDailyMs, pomodoroDaily, pomodoroIncrement, activeFocusSession } =
+      parsed.data;
 
     if (addDailyMs) {
       addDailyMsToDashboard(dashboard, addDailyMs.date, addDailyMs.ms);
@@ -64,6 +65,15 @@ export async function PATCH(request) {
 
     if (pomodoroDaily) {
       dashboard.pomodoroDaily = pomodoroDaily;
+    }
+
+    if (activeFocusSession === null) {
+      dashboard.set("activeFocusSession", undefined);
+    } else if (activeFocusSession) {
+      dashboard.activeFocusSession = {
+        ...activeFocusSession,
+        updatedAt: new Date(),
+      };
     }
 
     if (pomodoroIncrement) {

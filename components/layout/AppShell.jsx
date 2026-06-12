@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTaskStore } from "@/store/useTaskStore";
 import { GlobalTimerTick } from "@/components/timer/GlobalTimerTick";
+import { TimerPersistenceBridge } from "@/components/timer/TimerPersistenceBridge";
 import { Sidebar } from "./Sidebar";
 import { TopNav } from "./TopNav";
 
@@ -22,6 +23,7 @@ export function AppShell({ children }) {
     pathname?.startsWith("/productivity/batching") ||
     pathname?.startsWith("/productivity/task-batching");
   const isFlowRoute = pathname?.startsWith("/productivity/flow");
+  const isPomodoroRoute = pathname?.startsWith("/productivity/pomodoro");
   const isAuthRoute = pathname?.startsWith("/auth");
   const peripheralHidden =
     (deepWorkFocusMode && isDeepWorkRoute) ||
@@ -34,6 +36,7 @@ export function AppShell({ children }) {
   return (
     <div className="flex min-h-screen">
       <GlobalTimerTick />
+      <TimerPersistenceBridge />
       <AnimatePresence initial={false}>
         {showPeripherals && (
           <motion.div

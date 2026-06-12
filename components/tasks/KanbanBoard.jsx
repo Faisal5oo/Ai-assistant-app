@@ -10,10 +10,10 @@ import { ListTodo, Plus } from "lucide-react";
 
 import { useTaskStore } from "@/store/useTaskStore";
 import { useTasks } from "@/hooks/queries/useTasksQuery";
+import { useConfirmDeleteTask } from "@/hooks/useConfirmDeleteTask";
 import {
   useCreateTaskMutation,
   useUpdateTaskMutation,
-  useDeleteTaskMutation,
   useReorderTasksMutation,
 } from "@/hooks/queries/useTaskMutations";
 
@@ -25,6 +25,7 @@ import { KanbanColumn } from "./KanbanColumn";
 
 import { KanbanDragGhost } from "./KanbanDragGhost";
 
+import { DeleteTaskConfirmModal } from "./DeleteTaskConfirmModal";
 import { TaskModal } from "./TaskModal";
 
 
@@ -36,8 +37,14 @@ export function KanbanBoard() {
   const setBatchingFilterTag = useTaskStore((s) => s.setBatchingFilterTag);
   const createTask = useCreateTaskMutation();
   const updateTask = useUpdateTaskMutation();
-  const deleteTask = useDeleteTaskMutation();
   const reorderTasksMutation = useReorderTasksMutation();
+  const {
+    deleteTarget,
+    requestDelete,
+    cancelDelete,
+    confirmDelete,
+    isDeleting,
+  } = useConfirmDeleteTask();
 
 
 
@@ -143,14 +150,29 @@ export function KanbanBoard() {
 
 
 
+  const closeTaskModal = useCallback(() => {
+    setModalOpen(false);
+    setEditingTask(null);
+  }, []);
+
   const handleSave = (data) => {
     if (editingTask) {
-      updateTask.mutate({ id: editingTask.id, updates: data });
-    } else {
-      createTask.mutate(data);
+      updateTask.mutate(
+        { id: editingTask.id, updates: data },
+        { onSuccess: closeTaskModal }
+      );
+      return;
     }
-    setEditingTask(null);
+    createTask.mutate(data, { onSuccess: closeTaskModal });
   };
+
+  const handleRequestDelete = useCallback(
+    (id) => {
+      const task = visibleTasks.find((t) => t.id === id);
+      if (task) requestDelete(task);
+    },
+    [visibleTasks, requestDelete]
+  );
 
 
 
@@ -259,7 +281,7 @@ export function KanbanBoard() {
               draggingTaskId={draggingTaskId}
               onDragStart={handleDragStart}
               onEdit={openEdit}
-              onDelete={(id) => deleteTask.mutate(id)}
+              onDelete={handleRequestDelete}
             />
           ))}
         </div>
@@ -276,21 +298,19 @@ export function KanbanBoard() {
 
 
       <TaskModal
-
         open={modalOpen}
-
-        onClose={() => {
-
-          setModalOpen(false);
-
-          setEditingTask(null);
-
-        }}
-
+        onClose={closeTaskModal}
         onSave={handleSave}
-
         task={editingTask}
+        isSaving={createTask.isPending || updateTask.isPending}
+      />
 
+      <DeleteTaskConfirmModal
+        open={Boolean(deleteTarget)}
+        task={deleteTarget}
+        isDeleting={isDeleting}
+        onClose={cancelDelete}
+        onConfirm={confirmDelete}
       />
 
     </motion.div>

@@ -1,0 +1,118 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
+import { dashboardApi } from "@/lib/api-client";
+import {
+  readFocusSessionFromStorage,
+  toActiveTimerFromPersisted,
+} from "@/lib/focusSessionStorage";
+import {
+  mirrorFocusSessionLocal,
+  snapshotRunningSession,
+} from "@/lib/focusSessionSync";
+import { useTasksQuery } from "@/hooks/queries/useTasksQuery";
+import { clearActiveTimer } from "@/lib/taskStatusTimerSync";
+import { useTaskStore } from "@/store/useTaskStore";
+
+const RUNNING_SNAPSHOT_MS = 2000;
+
+/**
+ * Hydrates focus timer from storage/backend and mirrors live state locally.
+ * No UI — avoids layout jitter in header or Time Tracker.
+ */
+export function TimerPersistenceBridge() {
+  const pathname = usePathname();
+  const { data: tasks, isSuccess: tasksReady } = useTasksQuery();
+  const hydratedRef = useRef(false);
+  const skipMirrorRef = useRef(false);
+
+  useEffect(() => {
+    if (pathname?.startsWith("/auth")) return undefined;
+    if (hydratedRef.current) return undefined;
+    hydratedRef.current = true;
+
+    let cancelled = false;
+
+    const applySession = (session) => {
+      if (!session?.taskId || cancelled) return;
+      skipMirrorRef.current = true;
+      useTaskStore.setState({
+        activeTimer: toActiveTimerFromPersisted(session),
+        activeTechnique: session.activeTechnique ?? null,
+      });
+      skipMirrorRef.current = false;
+    };
+
+    const hydrate = async () => {
+      const local = readFocusSessionFromStorage();
+      if (local?.taskId) {
+        applySession(local);
+        return;
+      }
+
+      try {
+        const { dashboard } = await dashboardApi.get();
+        if (dashboard.activeFocusSession?.taskId) {
+          applySession(dashboard.activeFocusSession);
+        }
+      } catch {
+        /* unauthenticated or offline */
+      }
+    };
+
+    hydrate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
+
+  useEffect(() => {
+    if (pathname?.startsWith("/auth")) return undefined;
+
+    const unsubscribe = useTaskStore.subscribe((state, prev) => {
+      if (skipMirrorRef.current) return;
+      if (state.activeTimer === prev.activeTimer) return;
+      mirrorFocusSessionLocal(state.activeTimer, state.activeTechnique);
+    });
+
+    const runningInterval = setInterval(() => {
+      const { activeTimer, activeTechnique } = useTaskStore.getState();
+      if (activeTimer.isRunning && activeTimer.taskId) {
+        snapshotRunningSession(activeTimer, activeTechnique);
+      }
+    }, RUNNING_SNAPSHOT_MS);
+
+    const onBeforeUnload = () => {
+      const { activeTimer, activeTechnique } = useTaskStore.getState();
+      if (!activeTimer.taskId) return;
+      if (activeTimer.isRunning) {
+        snapshotRunningSession(activeTimer, activeTechnique);
+      } else {
+        mirrorFocusSessionLocal(activeTimer, activeTechnique);
+      }
+    };
+
+    window.addEventListener("beforeunload", onBeforeUnload);
+
+    return () => {
+      unsubscribe();
+      clearInterval(runningInterval);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!tasksReady || !tasks?.length) return;
+    const { activeTimer } = useTaskStore.getState();
+    if (
+      activeTimer.taskId &&
+      !tasks.some((t) => t.id === activeTimer.taskId)
+    ) {
+      clearActiveTimer();
+    }
+  }, [tasksReady, tasks]);
+
+  return null;
+}

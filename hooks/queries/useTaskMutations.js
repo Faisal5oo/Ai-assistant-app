@@ -7,9 +7,11 @@ import { queryKeys } from "@/lib/query-keys";
 import {
   captureTimerSnapshot,
   restoreTimerSnapshot,
+  clearActiveTimer,
   diffAndSyncTimer,
   syncTimerForStatusChange,
 } from "@/lib/taskStatusTimerSync";
+import { useTaskStore } from "@/store/useTaskStore";
 import { appToast } from "@/lib/toast";
 
 /** @param {Record<string, unknown>} updates */
@@ -29,15 +31,44 @@ export function useCreateTaskMutation() {
 
   return useMutation({
     mutationFn: (payload) => tasksApi.create(payload).then((r) => r.task),
-    onSuccess: (task) => {
-      queryClient.setQueryData(queryKeys.tasks, (prev) => [
-        ...(prev ?? []),
-        task,
-      ]);
-      appToast.success("Task created");
+    onMutate: async (payload) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.tasks });
+      const previous = queryClient.getQueryData(queryKeys.tasks) ?? [];
+      const tempId = `optimistic-${Date.now()}`;
+
+      /** @type {import('@/types/interfaces').Task} */
+      const optimistic = {
+        id: tempId,
+        title: payload.title,
+        category: payload.category ?? "Work",
+        priority: payload.priority ?? "Medium",
+        status: "Todo",
+        estimatedTime: payload.estimatedTime ?? 30,
+        actualTimeSpent: 0,
+        tags: payload.tags ?? [],
+        scheduledAt: payload.scheduledAt,
+        description: payload.description,
+        createdAt: new Date().toISOString(),
+      };
+
+      queryClient.setQueryData(queryKeys.tasks, [...previous, optimistic]);
+      return { previous, tempId };
     },
-    onError: (error) => {
+    onError: (error, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.tasks, context.previous);
+      }
       appToast.error(error, "Could not create task.");
+    },
+    onSuccess: (task, _vars, context) => {
+      queryClient.setQueryData(queryKeys.tasks, (prev) => {
+        const list = prev ?? [];
+        if (context?.tempId) {
+          return list.map((t) => (t.id === context.tempId ? task : t));
+        }
+        return [...list, task];
+      });
+      appToast.success("Task created");
     },
   });
 }
@@ -78,6 +109,9 @@ export function useUpdateTaskMutation(options = {}) {
       queryClient.setQueryData(queryKeys.tasks, (prev) =>
         (prev ?? []).map((t) => (t.id === task.id ? task : t))
       );
+      if (variables?.updates?.status) {
+        queryClient.invalidateQueries({ queryKey: ["analytics"] });
+      }
       if (!silent && !variables.silent) {
         appToast.success("Task saved");
       }
@@ -92,19 +126,25 @@ export function useDeleteTaskMutation() {
     mutationFn: (id) => tasksApi.remove(id),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.tasks });
-      const previous = queryClient.getQueryData(queryKeys.tasks);
+      const previous = queryClient.getQueryData(queryKeys.tasks) ?? [];
+      const timerSnapshot = captureTimerSnapshot();
+
+      if (useTaskStore.getState().activeTimer.taskId === id) {
+        clearActiveTimer();
+      }
 
       queryClient.setQueryData(queryKeys.tasks, (prev) =>
         (prev ?? []).filter((t) => t.id !== id)
       );
 
-      return { previous };
+      return { previous, timerSnapshot };
     },
     onError: (error, _id, context) => {
       if (context?.previous) {
         queryClient.setQueryData(queryKeys.tasks, context.previous);
       }
-      appToast.error(error, "Could not delete task.");
+      restoreTimerSnapshot(context?.timerSnapshot);
+      appToast.error(error, "Could not delete task. Changes were reverted.");
     },
     onSuccess: () => {
       appToast.success("Task deleted");
@@ -147,6 +187,7 @@ export function useToggleTaskCompleteMutation() {
       queryClient.setQueryData(queryKeys.tasks, (prev) =>
         (prev ?? []).map((t) => (t.id === task.id ? task : t))
       );
+      queryClient.invalidateQueries({ queryKey: ["analytics"] });
     },
   });
 }
@@ -182,8 +223,8 @@ export function useRecordTaskTimeMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, durationMs, date }) =>
-      tasksApi.recordTime(id, durationMs, date),
+    mutationFn: ({ id, durationMs, date, interval }) =>
+      tasksApi.recordTime(id, durationMs, date, interval ?? {}),
     onMutate: async ({ id, durationMs, date }) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.tasks });
       await queryClient.cancelQueries({ queryKey: queryKeys.dashboard });
@@ -230,6 +271,8 @@ export function useRecordTaskTimeMutation() {
         ...prev,
         dailyLogs,
       }));
+      // Invalidate analytics so the next visit to /analytics fetches fresh aggregations
+      queryClient.invalidateQueries({ queryKey: ["analytics"] });
     },
   });
 }

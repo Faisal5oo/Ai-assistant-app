@@ -15,6 +15,7 @@ import {
   restoreTimerSnapshot,
   getSessionMs,
 } from "@/lib/taskStatusTimerSync";
+import { persistFocusSession } from "@/lib/focusSessionSync";
 import { todayKey } from "@/lib/utils";
 import { useTaskStore } from "@/store/useTaskStore";
 import { appToast } from "@/lib/toast";
@@ -34,18 +35,24 @@ export function useActivateFocusTask() {
       taskId,
       previousTaskId,
       sessionMs,
+      sessionInterval,
       reorder,
       timerOptions,
     }) => {
       if (previousTaskId && sessionMs > 0) {
-        await tasksApi.recordTime(previousTaskId, sessionMs, todayKey());
+        await tasksApi.recordTime(
+          previousTaskId,
+          sessionMs,
+          todayKey(),
+          sessionInterval ?? {}
+        );
       }
       if (reorder) {
         await tasksApi.reorder(reorder);
       }
       return { taskId, timerOptions };
     },
-    onMutate: async ({ taskId, previousTaskId, sessionMs, reorder, timerOptions }) => {
+    onMutate: async ({ taskId, previousTaskId, sessionMs, sessionInterval, reorder, timerOptions }) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.tasks });
       await queryClient.cancelQueries({ queryKey: queryKeys.dashboard });
 
@@ -66,17 +73,21 @@ export function useActivateFocusTask() {
       nextTasks = applyHoistInProgress(nextTasks, reorder);
       queryClient.setQueryData(queryKeys.tasks, nextTasks);
 
+      const nextTimer = {
+        taskId,
+        isRunning: true,
+        startedAt: Date.now(),
+        elapsedMs: 0,
+        mode: timerOptions?.mode ?? "work",
+        targetMs: timerOptions?.targetMs,
+      };
+      const nextTechnique = timerOptions?.technique ?? null;
+
       useTaskStore.setState({
-        activeTimer: {
-          taskId,
-          isRunning: true,
-          startedAt: Date.now(),
-          elapsedMs: 0,
-          mode: timerOptions?.mode ?? "work",
-          targetMs: timerOptions?.targetMs,
-        },
-        activeTechnique: timerOptions?.technique ?? null,
+        activeTimer: nextTimer,
+        activeTechnique: nextTechnique,
       });
+      persistFocusSession(nextTimer, nextTechnique);
 
       return { previousTasks, previousDashboard, timerSnapshot };
     },
@@ -111,10 +122,25 @@ export function useActivateFocusTask() {
       const sessionMs = previousTaskId ? getSessionMs(activeTimer) : 0;
       const { reorder } = buildHoistInProgressPayload(tasks, taskId);
 
+      // Build the real clock interval so the backend can write a precise timeLog entry
+      const stoppedNow = new Date();
+      const sessionInterval =
+        previousTaskId && previousTaskId !== taskId && sessionMs > 0
+          ? {
+              startedAt: new Date(
+                activeTimer.isRunning
+                  ? activeTimer.startedAt
+                  : stoppedNow.getTime() - sessionMs
+              ).toISOString(),
+              stoppedAt: stoppedNow.toISOString(),
+            }
+          : null;
+
       mutation.mutate({
         taskId,
         previousTaskId: previousTaskId && previousTaskId !== taskId ? previousTaskId : null,
         sessionMs: previousTaskId && previousTaskId !== taskId ? sessionMs : 0,
+        sessionInterval,
         reorder,
         timerOptions,
       });

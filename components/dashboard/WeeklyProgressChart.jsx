@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { format, subDays } from "date-fns";
 import { useDashboard } from "@/hooks/queries/useDashboardQuery";
+import { buildWeeklyProgressTimeline } from "@/lib/progress-timeline";
 import { formatMsToHoursMinutes, msToHours } from "@/lib/utils";
 
 const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
@@ -12,21 +12,23 @@ export function WeeklyProgressChart() {
   const { dailyLogs } = useDashboard();
   const [hovered, setHovered] = useState(null);
 
-  const weekDays = Array.from({ length: 7 }, (_, i) => {
-    const d = subDays(new Date(), 6 - i);
-    const key = format(d, "yyyy-MM-dd");
-    const log = dailyLogs.find((l) => l.date === key);
+  const { timeline, totalMs } = useMemo(
+    () => buildWeeklyProgressTimeline(dailyLogs, 0),
+    [dailyLogs]
+  );
+
+  const weekDays = timeline.map((day) => {
+    const d = parseLocalDateKey(day.date);
     return {
-      key,
+      key: day.date,
       label: DAY_LABELS[d.getDay()],
-      totalMs: log?.totalMs ?? 0,
-      isToday: i === 6,
+      totalMs: day.totalMs,
+      isToday: day.isToday,
     };
   });
 
   const maxMs = Math.max(...weekDays.map((d) => d.totalMs), 1);
-  const weekTotalMs = weekDays.reduce((s, d) => s + d.totalMs, 0);
-  const weekHours = msToHours(weekTotalMs).toFixed(1);
+  const weekHours = msToHours(totalMs).toFixed(1);
 
   return (
     <motion.div layout className="glass-card p-6">
@@ -80,4 +82,12 @@ export function WeeklyProgressChart() {
       </div>
     </motion.div>
   );
+}
+
+/**
+ * @param {string} dateStr
+ */
+function parseLocalDateKey(dateStr) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day);
 }

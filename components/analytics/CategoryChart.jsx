@@ -5,10 +5,11 @@ import { CATEGORIES } from "@/types/interfaces";
 import { msToHours } from "@/lib/utils";
 
 /**
- * @param {Object} props
+ * @param {Object}  props
  * @param {Record<string, number>} props.dataByCategory - ms per category
+ * @param {boolean} [props.isLoading]
  */
-export function CategoryChart({ dataByCategory }) {
+export function CategoryChart({ dataByCategory, isLoading = false }) {
   const values = CATEGORIES.map((c) => ({
     category: c,
     ms: dataByCategory[c] ?? 0,

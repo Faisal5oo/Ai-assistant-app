@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
+import { useTaskStore } from "@/store/useTaskStore";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -22,17 +23,22 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const pomodoroFocusMode = useTaskStore((s) => s.pomodoroFocusMode);
+  const isPomodoroRoute = pathname?.startsWith("/productivity/pomodoro");
+  const focusLocked = pomodoroFocusMode && isPomodoroRoute;
+
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navContent = (
     <>
       <div className="mb-8 flex items-center gap-2 px-2">
         <div className="rounded-full bg-white px-4 py-2 shadow-glass">
-          <span className="font-display text-lg font-semibold tracking-tight">
+          <span className="font-display text-lg font-semibold tracking-tight text-charcoal">
             TaskFlow
           </span>
         </div>
       </div>
+
       <nav className="flex flex-1 flex-col gap-1">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(`${href}/`);
@@ -41,11 +47,17 @@ export function Sidebar() {
               key={href}
               href={href}
               onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-all ${
-                active
+              tabIndex={focusLocked && !active ? -1 : undefined}
+              className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-500 ${
+                focusLocked
+                  ? active
+                    ? "bg-charcoal/60 text-white/60 shadow-soft"
+                    : "pointer-events-none text-charcoal/25 opacity-50"
+                  : active
                   ? "bg-charcoal text-white shadow-soft"
                   : "text-charcoal/70 hover:bg-white/60 hover:text-charcoal"
               }`}
+              aria-disabled={focusLocked && !active}
             >
               <Icon size={18} strokeWidth={active ? 2.5 : 2} />
               {label}
@@ -53,8 +65,9 @@ export function Sidebar() {
           );
         })}
       </nav>
+
       <p className="mt-auto px-2 text-xs text-charcoal/40">
-        Focus without distraction
+        {focusLocked ? "Focus in progress…" : "Focus without distraction"}
       </p>
     </>
   );
@@ -70,7 +83,15 @@ export function Sidebar() {
         {mobileOpen ? <X size={20} /> : <Menu size={20} />}
       </button>
 
-      <aside className="hidden w-56 shrink-0 flex-col p-6 lg:flex">{navContent}</aside>
+      <motion.aside
+        animate={{ opacity: focusLocked ? 0.35 : 1 }}
+        transition={{ duration: 0.9, ease: "easeInOut" }}
+        className={`hidden w-56 shrink-0 flex-col p-6 lg:flex transition-[background] duration-700 ${
+          focusLocked ? "bg-zinc-950/0" : ""
+        }`}
+      >
+        {navContent}
+      </motion.aside>
 
       {mobileOpen && (
         <motion.aside

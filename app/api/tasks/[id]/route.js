@@ -9,8 +9,9 @@ export const dynamic = "force-dynamic";
 
 /**
  * @param {Record<string, unknown>} updates
+ * @param {import('mongoose').Document | null} existingTask - existing task for transition detection
  */
-function buildMongoUpdate(updates) {
+function buildMongoUpdate(updates, existingTask) {
   /** @type {Record<string, unknown>} */
   const $set = {};
   /** @type {Record<string, "">} */
@@ -27,7 +28,19 @@ function buildMongoUpdate(updates) {
       continue;
     }
 
+    if (key === "lastWorkedAt" && typeof value === "string") {
+      $set[key] = new Date(value);
+      continue;
+    }
+
     $set[key] = value;
+  }
+
+  // Auto-stamp completedAt when transitioning to Completed
+  if (updates.status === "Completed" && existingTask?.status !== "Completed") {
+    $set.completedAt = new Date();
+  } else if (updates.status && updates.status !== "Completed" && existingTask?.status === "Completed") {
+    $unset.completedAt = "";
   }
 
   return {
@@ -70,7 +83,12 @@ export async function PATCH(request, { params }) {
 
     await connectDB();
 
-    const mongoUpdate = buildMongoUpdate(parsed.data);
+    const existingTask = await Task.findOne(
+      { _id: id, userId: auth.id },
+      { status: 1 }
+    ).lean();
+
+    const mongoUpdate = buildMongoUpdate(parsed.data, existingTask);
     if (!mongoUpdate.$set && !mongoUpdate.$unset) {
       return NextResponse.json(
         { success: false, error: "No valid fields to update." },

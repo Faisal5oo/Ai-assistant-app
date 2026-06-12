@@ -19,10 +19,12 @@
  * @property {TaskStatus} status
  * @property {number} estimatedTime - minutes
  * @property {number} actualTimeSpent - milliseconds
+ * @property {number} [completedPomodoros]
  * @property {string[]} tags
  * @property {string} [scheduledAt] - ISO date string for timeline
  * @property {string} [description]
  * @property {string} createdAt
+ * @property {string} [lastWorkedAt]
  * @property {EisenhowerQuadrant} [eisenhowerQuadrant] - explicit matrix placement
  * @property {string} [delegateTo] - Q3 delegate assignee label
  * @property {boolean} [automateCandidate] - Q3 automation flag

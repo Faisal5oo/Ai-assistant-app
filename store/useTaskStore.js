@@ -9,12 +9,24 @@ import { getTasksFromCache } from "@/lib/query-cache";
 import {
   updateTaskImperative,
   recordTaskTimeImperative,
-  incrementPomodoroImperative,
   reorderTasksImperative,
   deleteTaskImperative,
+  startPomodoroSessionImperative,
+  endPomodoroSessionImperative,
+  completeTaskImperative,
 } from "@/lib/imperative-mutations";
 import { activateFocusTaskImperative } from "@/lib/activateFocusTaskImperative";
-import { syncTimerForStatusChange } from "@/lib/taskStatusTimerSync";
+import {
+  checkpointPausedSession,
+  checkpointFocusSessionRemote,
+  persistFocusSession,
+  purgeFocusSession,
+} from "@/lib/focusSessionSync";
+import {
+  clearActiveTimer,
+  syncTimerForStatusChange,
+} from "@/lib/taskStatusTimerSync";
+import { toHighResAvatarUrl } from "@/lib/user-utils";
 
 /**
  * @typedef {import('@/types/interfaces').ActiveTimer} ActiveTimer
@@ -22,14 +34,6 @@ import { syncTimerForStatusChange } from "@/lib/taskStatusTimerSync";
  * @typedef {import('@/types/interfaces').ProductivityModal} ProductivityModal
  * @typedef {import('@/types/interfaces').TaskStatus} TaskStatus
  */
-
-/** @param {string | undefined} avatar */
-function toHighResAvatarUrl(avatar) {
-  if (!avatar || typeof avatar !== "string") {
-    return "";
-  }
-  return avatar.replace(/=s\d+-c/, "=s400-c");
-}
 
 /** @returns {ActiveTimer} */
 const initialTimer = () => ({
@@ -53,15 +57,15 @@ export const useTaskStore = create((set, get) => ({
   deepWorkFocusMode: false,
   batchingFocusMode: false,
   flowFocusMode: false,
+  pomodoroFocusMode: false,
 
   updateTask: (id, updates) => {
     updateTaskImperative(id, updates);
   },
 
   deleteTask: (id) => {
-    const { activeTimer } = get();
-    if (activeTimer.taskId === id) {
-      get().stopTimer();
+    if (get().activeTimer.taskId === id) {
+      clearActiveTimer();
     }
     deleteTaskImperative(id);
   },
@@ -125,8 +129,14 @@ export const useTaskStore = create((set, get) => ({
   toggleTaskComplete: (id) => {
     const task = getTasksFromCache().find((t) => t.id === id);
     if (!task) return;
-    const next = task.status === "Completed" ? "Todo" : "Completed";
-    get().moveTaskStatus(id, next);
+
+    if (task.status === "Completed") {
+      get().moveTaskStatus(id, "Todo");
+      return;
+    }
+
+    completeTaskImperative(id);
+    syncTimerForStatusChange(id, task.status, "Completed");
   },
 
   startTimer: (taskId, options = {}) => {
@@ -134,34 +144,36 @@ export const useTaskStore = create((set, get) => ({
   },
 
   pauseTimer: () => {
-    const { activeTimer } = get();
+    const { activeTimer, activeTechnique } = get();
     if (!activeTimer.isRunning) return;
     const sessionMs = Date.now() - activeTimer.startedAt + activeTimer.elapsedMs;
-    set({
-      activeTimer: {
-        ...activeTimer,
-        isRunning: false,
-        elapsedMs: sessionMs,
-        startedAt: 0,
-      },
-    });
+    const nextTimer = {
+      ...activeTimer,
+      isRunning: false,
+      elapsedMs: sessionMs,
+      startedAt: 0,
+    };
+    set({ activeTimer: nextTimer });
+    checkpointPausedSession(nextTimer, activeTechnique);
   },
 
   resumeTimer: () => {
-    const { activeTimer } = get();
+    const { activeTimer, activeTechnique } = get();
     if (activeTimer.isRunning || !activeTimer.taskId) return;
-    set({
-      activeTimer: {
-        ...activeTimer,
-        isRunning: true,
-        startedAt: Date.now(),
-      },
-    });
+    const nextTimer = {
+      ...activeTimer,
+      isRunning: true,
+      startedAt: Date.now(),
+    };
+    set({ activeTimer: nextTimer });
+    persistFocusSession(nextTimer, activeTechnique);
+    checkpointFocusSessionRemote(nextTimer, activeTechnique);
   },
 
   stopTimer: () => {
     const { activeTimer } = get();
     if (!activeTimer.taskId) {
+      purgeFocusSession();
       set({ activeTimer: initialTimer(), activeTechnique: null });
       return;
     }
@@ -173,6 +185,7 @@ export const useTaskStore = create((set, get) => ({
 
     const taskId = activeTimer.taskId;
 
+    purgeFocusSession();
     set({ activeTimer: initialTimer(), activeTechnique: null });
 
     if (sessionMs > 0) {
@@ -224,6 +237,8 @@ export const useTaskStore = create((set, get) => ({
 
   setFlowFocusMode: (active) => set({ flowFocusMode: active }),
 
+  setPomodoroFocusMode: (active) => set({ pomodoroFocusMode: active }),
+
   recordDeepWorkSession: (taskId, durationMs) => {
     if (!taskId || durationMs <= 0) return;
 
@@ -235,22 +250,30 @@ export const useTaskStore = create((set, get) => ({
     recordTaskTimeImperative(taskId, durationMs, todayKey());
   },
 
-  recordPomodoroWorkComplete: (taskId) => {
-    const date = todayKey();
-    const durationMs = TECHNIQUE_DURATIONS_MS.pomodoro;
+  recordPomodoroWorkComplete: (taskId, durationMinutes) => {
     const { pomodoroCount } = get();
+    const minutes =
+      durationMinutes ??
+      Math.round((TECHNIQUE_DURATIONS_MS.pomodoro / 60_000) * 100) / 100;
 
-    if (taskId) {
-      recordTaskTimeImperative(taskId, durationMs, date);
-    }
+    endPomodoroSessionImperative({
+      taskId: taskId || null,
+      type: "focus",
+      duration: minutes,
+      status: "completed",
+    });
 
     set({
       pomodoroCount: pomodoroCount + 1,
       pomodoroPhase: "break",
     });
-
-    incrementPomodoroImperative({ date, goal: 4 });
   },
+
+  startPomodoroSession: (payload) => startPomodoroSessionImperative(payload),
+
+  endPomodoroSession: (payload) => endPomodoroSessionImperative(payload),
+
+  completeTask: (taskId) => completeTaskImperative(taskId),
 
   resolveDefaultTaskId: () => {
     const tasks = getTasksFromCache();

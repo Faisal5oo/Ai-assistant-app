@@ -1,9 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import Image from "next/image";
 import { ChevronDown, Laptop, Wallet, Heart, PiggyBank } from "lucide-react";
 import { useState } from "react";
+import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useTaskStore } from "@/store/useTaskStore";
 
 const ACCORDION = [
@@ -25,16 +25,14 @@ export function ProfileCard() {
         className="glass-card relative overflow-hidden p-0"
       >
         <div className="relative aspect-[4/5] bg-gradient-to-br from-cream-200 via-gold-light/40 to-charcoal/10">
-          {userAvatar ? (
-            <Image
-              src={userAvatar}
-              alt={userName ? `${userName}'s profile` : "Profile"}
-              fill
-              className="object-cover"
-              sizes="(max-width: 1024px) 100vw, 25vw"
-              unoptimized
-            />
-          ) : null}
+          <UserAvatar
+            name={userName}
+            avatar={userAvatar}
+            fill
+            className="object-cover"
+            sizes="(max-width: 1024px) 100vw, 25vw"
+            fallbackClassName="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-cream-200 via-gold-light/40 to-charcoal/10 font-display text-5xl font-semibold text-charcoal/70"
+          />
         </div>
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-charcoal/80 to-transparent p-5 pt-16">
           <div className="rounded-2xl border border-white/20 bg-white/20 p-4 backdrop-blur-md">

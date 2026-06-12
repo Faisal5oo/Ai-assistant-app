@@ -1,5 +1,13 @@
 import mongoose from "mongoose";
 
+const TimeLogSchema = new mongoose.Schema(
+  {
+    startedAt: { type: Date, required: true },
+    stoppedAt: { type: Date, required: true },
+  },
+  { _id: false }
+);
+
 const TaskSchema = new mongoose.Schema(
   {
     userId: {
@@ -41,6 +49,15 @@ const TaskSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    completedPomodoros: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    lastWorkedAt: {
+      type: Date,
+      default: null,
+    },
     tags: {
       type: [String],
       default: [],
@@ -68,6 +85,14 @@ const TaskSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    completedAt: {
+      type: Date,
+      default: null,
+    },
+    timeLogs: {
+      type: [TimeLogSchema],
+      default: [],
+    },
     createdAt: {
       type: Date,
       default: Date.now,
@@ -79,6 +104,8 @@ const TaskSchema = new mongoose.Schema(
 );
 
 TaskSchema.index({ userId: 1, status: 1, sortOrder: 1 });
+TaskSchema.index({ userId: 1, completedAt: 1 });
+TaskSchema.index({ userId: 1, category: 1 });
 
 const Task = mongoose.models.Task || mongoose.model("Task", TaskSchema);
 
