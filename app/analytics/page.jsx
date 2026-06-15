@@ -11,6 +11,7 @@ import {
 } from "@/lib/progress-timeline";
 import { CategoryChart } from "@/components/analytics/CategoryChart";
 import { EstimatedVsActual } from "@/components/analytics/EstimatedVsActual";
+import { EnergyCyclesCard } from "@/components/analytics/EnergyCyclesCard";
 import { FocusScoreCard } from "@/components/analytics/FocusScoreCard";
 import { ProgressChart } from "@/components/analytics/ProgressChart";
 
@@ -108,6 +109,12 @@ export default function AnalyticsPage() {
               : {}),
           }}
           isLoading={isLoading || summaryLoading}
+        />
+        <EnergyCyclesCard
+          energyCycles={summary.deepWork.energyCycles}
+          earlyCompletions={summary.deepWork.earlyCompletions}
+          totalMinutesSaved={summary.deepWork.totalMinutesSaved}
+          isLoading={summaryLoading}
         />
       </div>
     </div>

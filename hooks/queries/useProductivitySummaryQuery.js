@@ -27,6 +27,21 @@ const EMPTY_SUMMARY = {
     deltaPct: null,
     accuracyScore: null,
   },
+  deepWork: {
+    todaySessions: 0,
+    todayBreakthroughs: 0,
+    breakthroughAccuracy: null,
+    currentStreak: 0,
+    earlyCompletions: 0,
+    totalMinutesSaved: 0,
+    energyCycles: {
+      cognitiveDepletion: 0,
+      externalFriction: 0,
+      dopaminePull: 0,
+      total: 0,
+    },
+    rollingSevenDay: [],
+  },
   generatedAt: "",
 };
 

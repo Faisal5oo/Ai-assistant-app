@@ -14,35 +14,44 @@ function formatHms(totalSeconds) {
 }
 
 /**
- * Isolated countdown — ticks locally so parent trees do not re-render each second.
+ * Isolated countdown — paused until isRunning; ticks locally to avoid parent re-renders.
  * @param {Object} props
  * @param {number} props.totalSeconds
- * @param {number} props.startedAt - epoch ms when session began
+ * @param {boolean} props.isRunning
+ * @param {boolean} [props.isFrozen]
+ * @param {number | null} props.endsAt - epoch ms when countdown reaches zero
+ * @param {number | null} [props.frozenRemainingSeconds]
  * @param {() => void} props.onComplete
  */
-function DeepWorkCountdownInner({ totalSeconds, startedAt, onComplete }) {
-  const endsAtRef = useRef(startedAt + totalSeconds * 1000);
+function DeepWorkCountdownInner({
+  totalSeconds,
+  isRunning,
+  isFrozen = false,
+  endsAt,
+  frozenRemainingSeconds,
+  onComplete,
+}) {
   const onCompleteRef = useRef(onComplete);
   const completedRef = useRef(false);
-  const [remaining, setRemaining] = useState(() => {
-    const left = Math.ceil((endsAtRef.current - Date.now()) / 1000);
-    return Math.max(0, left);
-  });
+  const [remaining, setRemaining] = useState(totalSeconds);
 
   useEffect(() => {
     onCompleteRef.current = onComplete;
   }, [onComplete]);
 
   useEffect(() => {
-    endsAtRef.current = startedAt + totalSeconds * 1000;
-    const left = Math.ceil((endsAtRef.current - Date.now()) / 1000);
-    setRemaining(Math.max(0, left));
     completedRef.current = false;
-  }, [startedAt, totalSeconds]);
+    if (isFrozen && frozenRemainingSeconds != null) {
+      setRemaining(frozenRemainingSeconds);
+      return undefined;
+    }
+    if (!isRunning || !endsAt) {
+      setRemaining(totalSeconds);
+      return undefined;
+    }
 
-  useEffect(() => {
     const tick = () => {
-      const left = Math.ceil((endsAtRef.current - Date.now()) / 1000);
+      const left = Math.ceil((endsAt - Date.now()) / 1000);
       const next = Math.max(0, left);
       setRemaining(next);
       if (next <= 0 && !completedRef.current) {
@@ -53,8 +62,19 @@ function DeepWorkCountdownInner({ totalSeconds, startedAt, onComplete }) {
 
     tick();
     const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, []);
+
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      const left = Math.ceil((endsAt - Date.now()) / 1000);
+      setRemaining(Math.max(0, left));
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [isRunning, isFrozen, endsAt, totalSeconds, frozenRemainingSeconds]);
 
   const { h, m, s } = formatHms(remaining);
 

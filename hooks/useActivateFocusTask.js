@@ -8,6 +8,8 @@ import {
   applyHoistInProgress,
   getInProgressTopTask,
 } from "@/lib/focusQueue";
+import { getRunwayPrimaryAllocation, buildRunwayFocusTimerOptions } from "@/lib/runway-focus";
+import { getCurrentHour } from "@/lib/timeBlocking";
 import { getTasksFromCache } from "@/lib/query-cache";
 import { queryKeys } from "@/lib/query-keys";
 import {
@@ -150,6 +152,19 @@ export function useActivateFocusTask() {
 
   const playTopFocus = useCallback(() => {
     const tasks = getTasksFromCache();
+    const runwayPrimary = getRunwayPrimaryAllocation(
+      tasks,
+      getCurrentHour(new Date())
+    );
+
+    if (runwayPrimary) {
+      activate(
+        runwayPrimary.task.id,
+        buildRunwayFocusTimerOptions(runwayPrimary.durationMinutes)
+      );
+      return;
+    }
+
     const top = getInProgressTopTask(tasks);
     if (top) {
       activate(top.id);

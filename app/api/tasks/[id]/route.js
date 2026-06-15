@@ -28,6 +28,11 @@ function buildMongoUpdate(updates, existingTask) {
       continue;
     }
 
+    if (key === "timeBlockAllocations" && Array.isArray(value)) {
+      $set[key] = value;
+      continue;
+    }
+
     if (key === "lastWorkedAt" && typeof value === "string") {
       $set[key] = new Date(value);
       continue;

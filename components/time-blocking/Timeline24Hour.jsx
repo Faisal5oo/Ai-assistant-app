@@ -8,11 +8,12 @@ import { TimelineSection } from "./TimelineSection";
 
 /**
  * @param {Object} props
- * @param {Record<number, import('@/types/interfaces').Task | null>} props.slotMap
+ * @param {Record<number, import('@/lib/time-block-allocations').SlotAllocation[]>} props.slotMap
  * @param {import('@/types/interfaces').Task[]} props.openTasks
  * @param {number} props.currentHour
  * @param {(hour: number, taskId: string) => void} props.onAssign
- * @param {(taskId: string) => void} props.onClear
+ * @param {(taskId: string, hour: number) => void} props.onClear
+ * @param {(taskId: string) => Promise<void>} [props.onComplete]
  */
 export function Timeline24Hour({
   slotMap,
@@ -20,6 +21,7 @@ export function Timeline24Hour({
   currentHour,
   onAssign,
   onClear,
+  onComplete,
 }) {
   /** @type {[{ hour: number, x: number, y: number } | null, React.Dispatch<React.SetStateAction<{ hour: number, x: number, y: number } | null>>]} */
   const [popoverAnchor, setPopoverAnchor] = useState(null);
@@ -61,6 +63,7 @@ export function Timeline24Hour({
               currentHour={currentHour}
               onRequestAllocate={handleRequestAllocate}
               onClear={onClear}
+              onComplete={onComplete}
             />
           ))}
         </div>

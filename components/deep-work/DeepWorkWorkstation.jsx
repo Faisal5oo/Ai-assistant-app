@@ -6,54 +6,116 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Brain } from "lucide-react";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useTasks } from "@/hooks/queries/useTasksQuery";
+import { useProductivitySummary } from "@/hooks/queries/useProductivitySummaryQuery";
 import { useDeepWorkSession } from "@/hooks/useDeepWorkSession";
+import { useDeepWorkTabIntercept } from "@/hooks/useDeepWorkTabIntercept";
 import { playDeepWorkSuccessChime } from "@/lib/deepWorkAudio";
 import { PreFlightCard } from "./PreFlightCard";
 import { IsolationChamber } from "./IsolationChamber";
 import { DistractionLog } from "./DistractionLog";
 import { SessionRecap } from "./SessionRecap";
-import { AbandonInterstitial } from "./AbandonInterstitial";
+import { FrictionGateModal } from "./FrictionGateModal";
+import { DeepWorkReturnDialog } from "./DeepWorkReturnDialog";
+import { DeepWorkVictoryBurst } from "./DeepWorkVictoryBurst";
+import { EarlyVictoryFluidBurst } from "./EarlyVictoryFluidBurst";
+import { EarlyVictoryOverlay } from "./EarlyVictoryOverlay";
 
 export function DeepWorkWorkstation() {
   const { tasks } = useTasks();
+  const { refetch: refetchSummary } = useProductivitySummary();
   const setDeepWorkFocusMode = useTaskStore((s) => s.setDeepWorkFocusMode);
 
   const {
     phase,
     session,
     distractions,
-    showAbandonPrompt,
+    showFrictionGate,
+    isCommitting,
+    isResolving,
+    isAbandoning,
+    isClaimingEarly,
+    celebratingComplete,
+    showEarlyCelebration,
+    earlyVictory,
     commitSession,
+    activateTimer,
     completeSession,
+    resolveSession,
+    markTaskComplete,
+    finishTaskCelebration,
     requestAbandon,
-    cancelAbandon,
-    confirmAbandon,
-    logSessionToStore,
+    cancelFrictionGate,
+    confirmFrictionAbandon,
+    claimEarlyObjective,
+    dismissEarlyVictory,
     addDistraction,
-    resetToSetup,
+    dismissRecap,
   } = useDeepWorkSession();
+
+  const tabInterceptEnabled =
+    phase === "active" && Boolean(session?.timerRunning) && !session?.timerFrozen;
+  const { showReturnDialog, resumeFocus, declareResearchPivot } =
+    useDeepWorkTabIntercept({ enabled: tabInterceptEnabled });
 
   useEffect(() => {
     return () => setDeepWorkFocusMode(false);
   }, [setDeepWorkFocusMode]);
 
   const handleCommit = useCallback(
-    (config) => {
-      commitSession(config);
+    async (config) => {
+      await commitSession(config);
     },
     [commitSession]
   );
 
   const handleTimerComplete = useCallback(() => {
+    if (session?.timerFrozen) return;
     playDeepWorkSuccessChime();
     completeSession();
-  }, [completeSession]);
+  }, [completeSession, session?.timerFrozen]);
 
-  const isActive = phase === "active";
-  const showPeripheral = !isActive;
+  const handleResolve = useCallback(
+    async (achieved) => {
+      await resolveSession(achieved);
+      refetchSummary();
+    },
+    [resolveSession, refetchSummary]
+  );
+
+  const handleMarkComplete = useCallback(() => {
+    markTaskComplete();
+  }, [markTaskComplete]);
+
+  const handleEarlyObjective = useCallback(async () => {
+    playDeepWorkSuccessChime();
+    await claimEarlyObjective();
+    refetchSummary();
+  }, [claimEarlyObjective, refetchSummary]);
+
+  const handleFrictionAbandon = useCallback(
+    async (reason) => {
+      await confirmFrictionAbandon(reason);
+      refetchSummary();
+    },
+    [confirmFrictionAbandon, refetchSummary]
+  );
+
+  useEffect(() => {
+    if (!celebratingComplete) return undefined;
+    const timer = setTimeout(() => {
+      finishTaskCelebration();
+    }, 1100);
+    return () => clearTimeout(timer);
+  }, [celebratingComplete, finishTaskCelebration]);
+
+  const isActive = phase === "active" && !earlyVictory;
+  const showPeripheral = !isActive && !earlyVictory;
 
   return (
     <div className="relative min-h-[calc(100vh-8rem)]">
+      <EarlyVictoryFluidBurst active={showEarlyCelebration} />
+      <DeepWorkVictoryBurst active={celebratingComplete} />
+
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -104,22 +166,33 @@ export function DeepWorkWorkstation() {
           <div className="flex justify-center">
             <AnimatePresence mode="wait">
               {phase === "setup" && (
-                <PreFlightCard key="preflight" tasks={tasks} onCommit={handleCommit} />
+                <PreFlightCard
+                  key="preflight"
+                  tasks={tasks}
+                  isCommitting={isCommitting}
+                  onCommit={handleCommit}
+                />
               )}
-              {phase === "active" && session && (
+              {phase === "active" && session && !earlyVictory && (
                 <IsolationChamber
                   key="chamber"
                   session={session}
                   onComplete={handleTimerComplete}
                   onRequestAbandon={requestAbandon}
+                  onActivateTimer={activateTimer}
+                  onEarlyObjective={handleEarlyObjective}
+                  isClaimingEarly={isClaimingEarly}
                 />
               )}
-              {phase === "complete" && session && (
+              {phase === "recap" && session && (
                 <SessionRecap
                   key="recap"
                   session={session}
-                  onLogTime={logSessionToStore}
-                  onDismiss={resetToSetup}
+                  isResolving={isResolving}
+                  celebratingComplete={celebratingComplete}
+                  onResolve={handleResolve}
+                  onMarkTaskComplete={handleMarkComplete}
+                  onDismiss={dismissRecap}
                 />
               )}
             </AnimatePresence>
@@ -140,11 +213,37 @@ export function DeepWorkWorkstation() {
         </div>
       </motion.div>
 
-      <AbandonInterstitial
-        open={showAbandonPrompt}
-        onStay={cancelAbandon}
-        onLeave={confirmAbandon}
-      />
+      <AnimatePresence>
+        {showFrictionGate && (
+          <FrictionGateModal
+            key="friction-gate"
+            open={showFrictionGate}
+            isSubmitting={isAbandoning}
+            onStay={cancelFrictionGate}
+            onSelectReason={handleFrictionAbandon}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showReturnDialog && (
+          <DeepWorkReturnDialog
+            key="return-dialog"
+            onResumeFocus={resumeFocus}
+            onResearchPivot={declareResearchPivot}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {earlyVictory && (
+          <EarlyVictoryOverlay
+            key="early-victory"
+            minutesSaved={earlyVictory.minutesSaved}
+            onContinue={dismissEarlyVictory}
+          />
+        )}
+      </AnimatePresence>
 
       {isActive && (
         <motion.div

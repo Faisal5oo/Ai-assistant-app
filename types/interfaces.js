@@ -11,6 +11,13 @@
  */
 
 /**
+ * @typedef {Object} TimeBlockAllocation
+ * @property {string} date - yyyy-MM-dd
+ * @property {number} hour - 0–23
+ * @property {number} durationMinutes - minutes reserved in this hour slot
+ */
+
+/**
  * @typedef {Object} Task
  * @property {string} id
  * @property {string} title
@@ -22,6 +29,7 @@
  * @property {number} [completedPomodoros]
  * @property {string[]} tags
  * @property {string} [scheduledAt] - ISO date string for timeline
+ * @property {TimeBlockAllocation[]} [timeBlockAllocations]
  * @property {string} [description]
  * @property {string} createdAt
  * @property {string} [lastWorkedAt]
@@ -68,6 +76,21 @@
 
 /**
  * @typedef {1 | 2 | 3 | 4} EisenhowerQuadrant
+ */
+
+/**
+ * @typedef {'cognitive_depletion' | 'external_friction' | 'dopamine_pull'} DeepWorkAbandonReason
+ */
+
+/**
+ * @typedef {'completed' | 'abandoned'} DeepWorkSessionStatus
+ */
+
+/**
+ * @typedef {Object} DeepWorkDaily
+ * @property {string} date
+ * @property {number} sessionsCompleted
+ * @property {number} breakthroughsAchieved
  */
 
 /**

@@ -8,9 +8,10 @@ import { DEEP_WORK_DURATIONS } from "@/lib/deepWorkConstants";
 /**
  * @param {Object} props
  * @param {import('@/types/interfaces').Task[]} props.tasks
- * @param {(config: { taskId: string; taskTitle: string; objective: string; durationMinutes: number }) => void} props.onCommit
+ * @param {boolean} [props.isCommitting]
+ * @param {(config: { taskId: string; taskTitle: string; objective: string; durationMinutes: number }) => void | Promise<void>} props.onCommit
  */
-export function PreFlightCard({ tasks, onCommit }) {
+export function PreFlightCard({ tasks, isCommitting = false, onCommit }) {
   const active = tasks.filter((t) => t.status !== "Completed");
   const [taskId, setTaskId] = useState(active[0]?.id ?? "");
   const [objective, setObjective] = useState("");
@@ -19,9 +20,9 @@ export function PreFlightCard({ tasks, onCommit }) {
   const selected = tasks.find((t) => t.id === taskId);
   const canCommit = Boolean(taskId && objective.trim());
 
-  const handleCommit = () => {
-    if (!canCommit || !selected) return;
-    onCommit({
+  const handleCommit = async () => {
+    if (!canCommit || !selected || isCommitting) return;
+    await onCommit({
       taskId,
       taskTitle: selected.title,
       objective,
@@ -118,13 +119,13 @@ export function PreFlightCard({ tasks, onCommit }) {
 
         <motion.button
           type="button"
-          disabled={!canCommit}
+          disabled={!canCommit || isCommitting}
           onClick={handleCommit}
-          whileHover={canCommit ? { scale: 1.02 } : undefined}
-          whileTap={canCommit ? { scale: 0.98 } : undefined}
+          whileHover={canCommit && !isCommitting ? { scale: 1.02 } : undefined}
+          whileTap={canCommit && !isCommitting ? { scale: 0.98 } : undefined}
           className="pill-btn-gold w-full py-3.5 text-base font-semibold disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Commit to Deep Work
+          {isCommitting ? "Committing…" : "Commit to Deep Work"}
         </motion.button>
       </div>
     </motion.div>

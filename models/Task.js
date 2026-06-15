@@ -65,6 +65,21 @@ const TaskSchema = new mongoose.Schema(
     scheduledAt: {
       type: Date,
     },
+    timeBlockAllocations: {
+      type: [
+        {
+          date: { type: String, required: true },
+          hour: { type: Number, required: true, min: 0, max: 23 },
+          durationMinutes: {
+            type: Number,
+            required: true,
+            min: 1,
+            max: 60,
+          },
+        },
+      ],
+      default: [],
+    },
     description: {
       type: String,
       maxlength: 2000,

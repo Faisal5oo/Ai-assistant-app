@@ -1,9 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { parseISO } from "date-fns";
-import { buildSlotIsoForToday } from "@/lib/timeBlocking";
-import { todayKey, isScheduledToday } from "@/lib/utils";
+import { todayKey } from "@/lib/utils";
 import { TECHNIQUE_DURATIONS_MS } from "@/lib/timerUtils";
 import { getTasksFromCache } from "@/lib/query-cache";
 import {
@@ -13,7 +11,11 @@ import {
   deleteTaskImperative,
   startPomodoroSessionImperative,
   endPomodoroSessionImperative,
+  startDeepWorkSessionImperative,
+  endDeepWorkSessionImperative,
   completeTaskImperative,
+  allocateTimeBlockImperative,
+  deallocateTimeBlockImperative,
 } from "@/lib/imperative-mutations";
 import { activateFocusTaskImperative } from "@/lib/activateFocusTaskImperative";
 import {
@@ -58,6 +60,10 @@ export const useTaskStore = create((set, get) => ({
   batchingFocusMode: false,
   flowFocusMode: false,
   pomodoroFocusMode: false,
+  /** Hour block currently conducting visual takeover (no auto-timer). */
+  runwayLiveHour: null,
+
+  setRunwayLiveHour: (hour) => set({ runwayLiveHour: hour }),
 
   updateTask: (id, updates) => {
     updateTaskImperative(id, updates);
@@ -273,6 +279,10 @@ export const useTaskStore = create((set, get) => ({
 
   endPomodoroSession: (payload) => endPomodoroSessionImperative(payload),
 
+  startDeepWorkSession: (payload) => startDeepWorkSessionImperative(payload),
+
+  endDeepWorkSession: (payload) => endDeepWorkSessionImperative(payload),
+
   completeTask: (taskId) => completeTaskImperative(taskId),
 
   resolveDefaultTaskId: () => {
@@ -289,26 +299,18 @@ export const useTaskStore = create((set, get) => ({
   },
 
   assignTimeBlock: (taskId, hour24) => {
-    const slotIso = buildSlotIsoForToday(hour24);
-    const tasks = getTasksFromCache();
-
-    tasks.forEach((t) => {
-      if (t.id === taskId) {
-        updateTaskImperative(t.id, { scheduledAt: slotIso });
-        return;
-      }
-      if (
-        t.scheduledAt &&
-        isScheduledToday(t.scheduledAt) &&
-        parseISO(t.scheduledAt).getHours() === hour24
-      ) {
-        updateTaskImperative(t.id, { scheduledAt: null });
-      }
-    });
+    allocateTimeBlockImperative(taskId, hour24);
   },
 
-  unassignTimeBlock: (taskId) => {
-    updateTaskImperative(taskId, { scheduledAt: null });
+  unassignTimeBlock: (taskId, hour24) => {
+    if (hour24 == null) {
+      updateTaskImperative(taskId, {
+        scheduledAt: null,
+        timeBlockAllocations: [],
+      });
+      return;
+    }
+    deallocateTimeBlockImperative(taskId, hour24);
   },
 
   startTechniqueTimer: (technique, taskId) => {

@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { formatHourRangeLabel } from "@/lib/timeBlocking";
+import { getTaskRemainingMinutes } from "@/lib/time-block-allocations";
 
 const POPOVER_WIDTH = 272;
 const POPOVER_MAX_HEIGHT = 320;
@@ -17,6 +18,8 @@ const POPOVER_MAX_HEIGHT = 320;
  */
 export function TaskAllocationPopover({ anchor, tasks, onSelect, onClose }) {
   const panelRef = useRef(null);
+
+  const eligibleTasks = tasks.filter((t) => getTaskRemainingMinutes(t) > 0);
 
   useEffect(() => {
     if (!anchor) return undefined;
@@ -76,28 +79,40 @@ export function TaskAllocationPopover({ anchor, tasks, onSelect, onClose }) {
           </div>
 
           <ul className="max-h-56 overflow-y-auto p-2">
-            {tasks.length === 0 ? (
+            {eligibleTasks.length === 0 ? (
               <li className="px-3 py-6 text-center text-xs text-charcoal/45">
-                No tasks available. Add tasks from the Tasks page first.
+                No tasks with remaining time. Add tasks from the Tasks page first.
               </li>
             ) : (
-              tasks.map((task) => (
-                <li key={task.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onSelect(task.id);
-                      onClose();
-                    }}
-                    className="w-full rounded-2xl px-3 py-2.5 text-left text-sm font-medium text-charcoal transition hover:bg-gold/15"
-                  >
-                    {task.title}
-                    <span className="mt-0.5 block text-xs font-normal text-charcoal/45">
-                      {task.category} · {task.estimatedTime}m
-                    </span>
-                  </button>
-                </li>
-              ))
+              eligibleTasks.map((task) => {
+                const remaining = getTaskRemainingMinutes(task);
+                return (
+                  <li key={task.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelect(task.id);
+                        onClose();
+                      }}
+                      className="w-full rounded-2xl px-3 py-2.5 text-left text-sm font-medium text-charcoal transition hover:bg-gold/15"
+                    >
+                      {task.title}
+                      <span className="mt-0.5 block text-xs font-normal text-charcoal/45">
+                        {task.category} ·{" "}
+                        <span className="tabular-nums text-gold-dark">
+                          {remaining}m left
+                        </span>
+                        {remaining < task.estimatedTime && (
+                          <span className="text-charcoal/35">
+                            {" "}
+                            · {task.estimatedTime}m total
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })
             )}
           </ul>
         </motion.div>

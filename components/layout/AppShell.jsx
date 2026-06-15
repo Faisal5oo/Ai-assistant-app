@@ -7,6 +7,8 @@ import { GlobalTimerTick } from "@/components/timer/GlobalTimerTick";
 import { TimerPersistenceBridge } from "@/components/timer/TimerPersistenceBridge";
 import { Sidebar } from "./Sidebar";
 import { TopNav } from "./TopNav";
+import { RunwayConductorBridge } from "@/components/runway/RunwayConductorBridge";
+import { DeepWorkPersistenceBridge } from "@/components/deep-work/DeepWorkPersistenceBridge";
 
 const PERIPHERAL_EXIT = {
   opacity: 0,
@@ -37,6 +39,8 @@ export function AppShell({ children }) {
     <div className="flex min-h-screen">
       <GlobalTimerTick />
       <TimerPersistenceBridge />
+      <DeepWorkPersistenceBridge />
+      <RunwayConductorBridge />
       <AnimatePresence initial={false}>
         {showPeripherals && (
           <motion.div

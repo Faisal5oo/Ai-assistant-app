@@ -2,6 +2,12 @@ export type TaskCategory = "Work" | "Personal" | "Learning" | "Health";
 export type TaskPriority = "Low" | "Medium" | "High";
 export type TaskStatus = "Todo" | "In-Progress" | "Completed";
 
+export interface TimeBlockAllocation {
+  date: string;
+  hour: number;
+  durationMinutes: number;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -13,6 +19,7 @@ export interface Task {
   completedPomodoros: number;
   tags: string[];
   scheduledAt?: string;
+  timeBlockAllocations?: TimeBlockAllocation[];
   description?: string;
   createdAt: string;
   lastWorkedAt?: string;
@@ -78,6 +85,17 @@ export interface PomodoroTimerState {
 
 export type PomodoroSessionType = "focus" | "short_break" | "long_break";
 export type PomodoroSessionStatus = "completed" | "abandoned";
+export type DeepWorkSessionStatus = "completed" | "abandoned";
+export type DeepWorkAbandonReason =
+  | "cognitive_depletion"
+  | "external_friction"
+  | "dopamine_pull";
+
+export interface DeepWorkDaily {
+  date: string;
+  sessionsCompleted: number;
+  breakthroughsAchieved: number;
+}
 
 export interface ActivePomodoroSession {
   id: string;
@@ -113,6 +131,26 @@ export interface ProductivitySummary {
     deltaMs: number;
     deltaPct: number | null;
     accuracyScore: number | null;
+  };
+  deepWork: {
+    todaySessions: number;
+    todayBreakthroughs: number;
+    breakthroughAccuracy: number | null;
+    currentStreak: number;
+    earlyCompletions: number;
+    totalMinutesSaved: number;
+    energyCycles: {
+      cognitiveDepletion: number;
+      externalFriction: number;
+      dopaminePull: number;
+      total: number;
+    };
+    rollingSevenDay: Array<{
+      date: string;
+      focusMinutes: number;
+      sessions: number;
+      breakthroughs: number;
+    }>;
   };
   generatedAt: string;
 }

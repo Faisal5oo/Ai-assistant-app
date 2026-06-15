@@ -17,6 +17,10 @@ export function useDashboardQuery() {
       return /** @type {DashboardData} */ (dashboard);
     },
     enabled,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchInterval: false,
   });
 }
 

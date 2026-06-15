@@ -64,7 +64,9 @@ export async function POST(request) {
         $set: {
           status: "Completed",
           completedAt: new Date(),
+          timeBlockAllocations: [],
         },
+        $unset: { scheduledAt: "" },
       },
       { new: true, runValidators: true }
     );

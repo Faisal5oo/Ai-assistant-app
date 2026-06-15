@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
+import Task from "@/models/Task";
 import { requireAuth, zodErrorResponse } from "@/lib/api-auth";
 import { updateDashboardSchema } from "@/lib/validations/dashboard";
-import { toClientDashboard } from "@/lib/task-serializers";
+import { toClientDashboard, toClientTask } from "@/lib/task-serializers";
 import {
   getOrCreateDashboard,
   addDailyMsToDashboard,
   serverTodayKey,
 } from "@/lib/dashboard-utils";
+import { getSlotAllocations } from "@/lib/time-block-allocations";
+import { formatHourRangeLabel } from "@/lib/timeBlocking";
 
 export const dynamic = "force-dynamic";
 
@@ -19,10 +22,37 @@ export async function GET(request) {
     await connectDB();
 
     const dashboard = await getOrCreateDashboard(auth.id);
+    const dateKey = serverTodayKey();
+    const currentHour = new Date().getHours();
+
+    const openTasks = await Task.find({
+      userId: auth.id,
+      status: { $ne: "Completed" },
+    }).lean();
+
+    const clientTasks = openTasks.map(toClientTask);
+    const allocations = getSlotAllocations(clientTasks, currentHour, dateKey);
+
+    const activeTimeBlock =
+      allocations.length > 0
+        ? {
+            date: dateKey,
+            hour: currentHour,
+            rangeLabel: formatHourRangeLabel(currentHour),
+            tasks: allocations.map(({ task, durationMinutes }) => ({
+              taskId: task.id,
+              title: task.title,
+              category: task.category,
+              priority: task.priority,
+              durationMinutes,
+            })),
+          }
+        : null;
 
     return NextResponse.json({
       success: true,
       dashboard: toClientDashboard(dashboard),
+      activeTimeBlock,
     });
   } catch (error) {
     console.error("[dashboard GET]", error);
@@ -56,7 +86,7 @@ export async function PATCH(request) {
     await connectDB();
 
     const dashboard = await getOrCreateDashboard(auth.id);
-    const { addDailyMs, pomodoroDaily, pomodoroIncrement, activeFocusSession } =
+    const { addDailyMs, pomodoroDaily, pomodoroIncrement, activeFocusSession, activeDeepWorkSession, deepWorkDaily } =
       parsed.data;
 
     if (addDailyMs) {
@@ -74,6 +104,19 @@ export async function PATCH(request) {
         ...activeFocusSession,
         updatedAt: new Date(),
       };
+    }
+
+    if (activeDeepWorkSession === null) {
+      dashboard.set("activeDeepWorkSession", undefined);
+    } else if (activeDeepWorkSession) {
+      dashboard.activeDeepWorkSession = {
+        ...activeDeepWorkSession,
+        updatedAt: new Date(),
+      };
+    }
+
+    if (deepWorkDaily) {
+      dashboard.deepWorkDaily = deepWorkDaily;
     }
 
     if (pomodoroIncrement) {

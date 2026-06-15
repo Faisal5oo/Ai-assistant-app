@@ -55,6 +55,45 @@ const ActiveFocusSessionSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const ActiveDeepWorkSessionSchema = new mongoose.Schema(
+  {
+    sessionId: { type: String, required: true },
+    taskId: { type: String, required: true },
+    taskTitle: { type: String, required: true },
+    objective: { type: String, required: true, maxlength: 200 },
+    durationMinutes: { type: Number, required: true, min: 60, max: 120 },
+    phase: { type: String, enum: ["active", "recap"], default: "active" },
+    timerRunning: { type: Boolean, default: false },
+    timerStartedAt: { type: Number, default: null },
+    endsAt: { type: Number, default: null },
+    committedAt: { type: Number, required: true },
+    distractions: { type: [String], default: [] },
+    updatedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
+const DeepWorkDailySchema = new mongoose.Schema(
+  {
+    date: {
+      type: String,
+      required: true,
+      match: /^\d{4}-\d{2}-\d{2}$/,
+    },
+    sessionsCompleted: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    breakthroughsAchieved: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+  },
+  { _id: false }
+);
+
 const UserDashboardSchema = new mongoose.Schema(
   {
     userId: {
@@ -74,6 +113,14 @@ const UserDashboardSchema = new mongoose.Schema(
     },
     activeFocusSession: {
       type: ActiveFocusSessionSchema,
+      default: undefined,
+    },
+    activeDeepWorkSession: {
+      type: ActiveDeepWorkSessionSchema,
+      default: undefined,
+    },
+    deepWorkDaily: {
+      type: DeepWorkDailySchema,
       default: undefined,
     },
   },

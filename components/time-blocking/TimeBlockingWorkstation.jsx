@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { LayoutGroup, motion } from "framer-motion";
 import { ArrowLeft, CalendarClock } from "lucide-react";
@@ -9,12 +9,16 @@ import { useTasks } from "@/hooks/queries/useTasksQuery";
 import { useCurrentClock } from "@/hooks/useCurrentClock";
 import {
   buildSlotAssignmentMap,
+  getActiveRunwayAllocations,
   getCurrentHour,
   getUnassignedTasks,
 } from "@/lib/timeBlocking";
+import { computeAllocationPlan } from "@/lib/time-block-allocations";
+import { completeTaskImperative } from "@/lib/imperative-mutations";
 import { format } from "@/lib/utils";
 import { ActiveRunwayBar } from "./ActiveRunwayBar";
 import { BrainDumpPanel } from "./BrainDumpPanel";
+import { SlotCapacityWarning } from "./SlotCapacityWarning";
 import { Timeline24Hour } from "./Timeline24Hour";
 
 export function TimeBlockingWorkstation() {
@@ -37,24 +41,45 @@ export function TimeBlockingWorkstation() {
     [tasks, slotMap]
   );
 
-  const activeRunwayTask = useMemo(
-    () => slotMap[currentHour] ?? null,
-    [slotMap, currentHour]
+  const activeRunwayAllocations = useMemo(
+    () => getActiveRunwayAllocations(tasks, currentHour),
+    [tasks, currentHour]
   );
+
+  /** @type {[{ hour: number, slotUsed: number, nextHour: number | null } | null, React.Dispatch<React.SetStateAction<{ hour: number, slotUsed: number, nextHour: number | null } | null>>]} */
+  const [capacityWarning, setCapacityWarning] = useState(null);
 
   const handleAssign = useCallback(
     (hour, taskId) => {
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) return;
+
+      const plan = computeAllocationPlan(task, hour, tasks);
+      if (!plan.ok && plan.reason === "over_capacity") {
+        setCapacityWarning({
+          hour,
+          slotUsed: plan.slotUsed ?? 0,
+          nextHour: plan.nextHour ?? null,
+        });
+        return;
+      }
+
+      setCapacityWarning(null);
       assignTimeBlock(taskId, hour);
     },
-    [assignTimeBlock]
+    [assignTimeBlock, tasks]
   );
 
   const handleClear = useCallback(
-    (taskId) => {
-      unassignTimeBlock(taskId);
+    (taskId, hour) => {
+      unassignTimeBlock(taskId, hour);
     },
     [unassignTimeBlock]
   );
+
+  const handleComplete = useCallback(async (taskId) => {
+    await completeTaskImperative(taskId);
+  }, []);
 
   const todayLabel = format(new Date(), "EEEE, MMM d");
 
@@ -91,8 +116,13 @@ export function TimeBlockingWorkstation() {
         </p>
       </div>
 
+      <SlotCapacityWarning
+        warning={capacityWarning}
+        onDismiss={() => setCapacityWarning(null)}
+      />
+
       <ActiveRunwayBar
-        activeTask={activeRunwayTask}
+        allocations={activeRunwayAllocations}
         currentHour={currentHour}
       />
 
@@ -104,6 +134,7 @@ export function TimeBlockingWorkstation() {
             currentHour={currentHour}
             onAssign={handleAssign}
             onClear={handleClear}
+            onComplete={handleComplete}
           />
           <BrainDumpPanel tasks={unassignedTasks} />
         </div>

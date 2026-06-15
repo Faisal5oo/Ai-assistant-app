@@ -12,10 +12,11 @@ import { TimelineRunwaySlot } from "./TimelineRunwaySlot";
 /**
  * @param {Object} props
  * @param {import('@/lib/timeBlocking').TimelineSectionConfig} props.section
- * @param {Record<number, import('@/types/interfaces').Task | null>} props.slotMap
+ * @param {Record<number, import('@/lib/time-block-allocations').SlotAllocation[]>} props.slotMap
  * @param {number | null} props.currentHour
  * @param {(hour: number, event: React.MouseEvent) => void} props.onRequestAllocate
- * @param {(taskId: string) => void} props.onClear
+ * @param {(taskId: string, hour: number) => void} props.onClear
+ * @param {(taskId: string) => Promise<void>} [props.onComplete]
  */
 export function TimelineSection({
   section,
@@ -23,10 +24,16 @@ export function TimelineSection({
   currentHour,
   onRequestAllocate,
   onClear,
+  onComplete,
 }) {
-  const [expanded, setExpanded] = useState(section.defaultExpanded);
+  const [expanded, setExpanded] = useState(() => {
+    if (currentHour == null) return section.defaultExpanded;
+    return currentHour >= section.startHour && currentHour < section.endHour
+      ? true
+      : section.defaultExpanded;
+  });
   const hours = getSectionHours(section);
-  const assignedCount = hours.filter((h) => slotMap[h]).length;
+  const assignedCount = hours.filter((h) => (slotMap[h]?.length ?? 0) > 0).length;
 
   return (
     <section className="overflow-hidden rounded-4xl border border-white/60 bg-white/35 shadow-glass">
@@ -67,19 +74,26 @@ export function TimelineSection({
             className="overflow-hidden"
           >
             <ul className="flex flex-col gap-2 border-t border-white/50 px-4 py-4 sm:px-5">
-              {hours.map((hour) => (
-                <TimelineRunwaySlot
-                  key={hour}
-                  hour={hour}
-                  assignedTask={slotMap[hour] ?? null}
-                  isCurrentHour={currentHour === hour}
-                  onRequestAllocate={onRequestAllocate}
-                  onClear={() => {
-                    const task = slotMap[hour];
-                    if (task) onClear(task.id);
-                  }}
-                />
-              ))}
+              {hours.map((hour) => {
+                const allocations = slotMap[hour] ?? [];
+                const slotUsedMinutes = allocations.reduce(
+                  (sum, a) => sum + a.durationMinutes,
+                  0
+                );
+
+                return (
+                  <TimelineRunwaySlot
+                    key={hour}
+                    hour={hour}
+                    allocations={allocations}
+                    slotUsedMinutes={slotUsedMinutes}
+                    isCurrentHour={currentHour === hour}
+                    onRequestAllocate={onRequestAllocate}
+                    onClear={onClear}
+                    onComplete={onComplete}
+                  />
+                );
+              })}
             </ul>
           </motion.div>
         )}

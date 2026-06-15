@@ -10,6 +10,7 @@ import {
   Calendar,
   GripVertical,
   Play,
+  Sparkles,
 } from "lucide-react";
 import { FocusQueueBadge } from "@/components/tasks/FocusQueueBadge";
 import { useActivateFocusTask } from "@/hooks/useActivateFocusTask";
@@ -26,6 +27,11 @@ import { formatScheduledTime } from "@/lib/utils";
 import { KANBAN_MORPH_SPRING } from "@/lib/kanban";
 import { getTodayDisplayTasks } from "@/lib/todayTasks";
 import { format } from "date-fns";
+import { ActiveTimeBlockHero } from "@/components/dashboard/ActiveTimeBlockHero";
+import { useCurrentClock } from "@/hooks/useCurrentClock";
+import { getActiveTimeBlockTaskIds, getActiveRunwayAllocations, getCurrentHour } from "@/lib/timeBlocking";
+import { buildRunwayFocusTimerOptions } from "@/lib/runway-focus";
+import { StartFocusSessionButton } from "@/components/runway/StartFocusSessionButton";
 
 const TODAY_ZONE = "Today";
 const DRAG_THRESHOLD_PX = 5;
@@ -101,6 +107,10 @@ export function OnboardingProgress() {
  * @param {boolean} props.isFocusPaused
  * @param {boolean} props.isInQueue
  * @param {boolean} props.isTopFocus
+ * @param {boolean} props.isActiveTimeBlock
+ * @param {boolean} props.isRunwayFocusReady
+ * @param {boolean} props.isRunwayPrimary
+ * @param {number} [props.slotDurationMinutes]
  * @param {(taskId: string, title: string, x: number, y: number) => void} props.onDragStart
  * @param {(task: import('@/types/interfaces').Task) => void} props.onToggle
  * @param {() => void} [props.onActivate]
@@ -114,6 +124,10 @@ function TodayTaskRow({
   isFocusPaused,
   isInQueue,
   isTopFocus,
+  isActiveTimeBlock,
+  isRunwayFocusReady,
+  isRunwayPrimary,
+  slotDurationMinutes,
   onDragStart,
   onToggle,
   onActivate,
@@ -187,7 +201,7 @@ function TodayTaskRow({
       animate={{
         opacity: isDragging ? 0.35 : 1,
         y: 0,
-        scale: isTopFocus ? 1.02 : 1,
+        scale: isTopFocus || (isRunwayFocusReady && isRunwayPrimary) ? 1.02 : 1,
       }}
       exit={{ opacity: 0, x: -12, transition: { duration: 0.2 } }}
       transition={{ ...KANBAN_MORPH_SPRING, delay: index * 0.03 }}
@@ -204,10 +218,27 @@ function TodayTaskRow({
             ? "bg-white/[0.03]"
             : isTopFocus
               ? "ring-2 ring-gold/55 shadow-[0_0_24px_rgba(250,204,21,0.18)]"
-              : "bg-white/5"
+              : isRunwayFocusReady && isRunwayPrimary
+                ? "ring-2 ring-gold/50 shadow-[0_0_28px_rgba(250,204,21,0.22)]"
+                : isActiveTimeBlock
+                  ? "ring-1 ring-gold/40 bg-gradient-to-r from-gold/15 via-amber-400/10 to-transparent shadow-[0_0_20px_rgba(250,204,21,0.1)]"
+                  : "bg-white/5"
         }`}
       >
         <AnimatePresence mode="sync" initial={false}>
+          {isRunwayFocusReady && isRunwayPrimary && !isFocusRunning && (
+            <motion.div
+              key="runway-ready"
+              aria-hidden
+              initial={{ opacity: 0 }}
+              animate={{ opacity: [0.35, 0.65, 0.35] }}
+              exit={{ opacity: 0, transition: { duration: 0.2 } }}
+              transition={{
+                opacity: { duration: 2.8, repeat: Infinity, ease: "easeInOut" },
+              }}
+              className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl bg-gradient-to-br from-gold/20 via-amber-400/10 to-charcoal/20"
+            />
+          )}
           {isFocusRunning && (
             <>
               <motion.div
@@ -272,10 +303,22 @@ function TodayTaskRow({
             <p
               className={`min-w-0 flex-1 truncate text-sm font-medium transition-all duration-300 ${
                 done ? "text-white/40 line-through decoration-white/25" : ""
-              } ${isTopFocus ? "text-gold" : ""}`}
+              } ${isTopFocus || isActiveTimeBlock || (isRunwayFocusReady && isRunwayPrimary) ? "text-gold" : ""}`}
             >
               {task.title}
             </p>
+            {isRunwayFocusReady && isRunwayPrimary && !done && (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-gold/40 bg-gold/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gold">
+                <Sparkles size={10} />
+                Ready
+              </span>
+            )}
+            {isActiveTimeBlock && !(isRunwayFocusReady && isRunwayPrimary) && !done && (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gold/25 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gold">
+                <Sparkles size={10} />
+                Live block
+              </span>
+            )}
             {isFocusPaused && (
               <FocusQueueBadge variant="paused" theme="dark" />
             )}
@@ -286,7 +329,17 @@ function TodayTaskRow({
           <p className="text-xs text-white/50">{timeLabel}</p>
         </div>
 
-        {(isInQueue || isFocusPaused) && onActivate && (
+        {isRunwayFocusReady && isRunwayPrimary && slotDurationMinutes && (
+          <div data-today-no-drag className="relative z-10">
+            <StartFocusSessionButton
+              taskId={task.id}
+              durationMinutes={slotDurationMinutes}
+              variant="compact"
+            />
+          </div>
+        )}
+
+        {(isInQueue || isFocusPaused) && onActivate && !isRunwayFocusReady && (
           <button
             type="button"
             data-today-no-drag
@@ -313,13 +366,38 @@ function TodayTaskRow({
 
 export function TodayChecklist() {
   const { tasks } = useTasks();
+  const now = useCurrentClock(30000);
+  const currentHour = useMemo(() => getCurrentHour(now), [now]);
+  const activeBlockIds = useMemo(
+    () => getActiveTimeBlockTaskIds(tasks, currentHour),
+    [tasks, currentHour]
+  );
+  const liveBlockMeta = useMemo(() => {
+    const allocations = getActiveRunwayAllocations(tasks, currentHour);
+    /** @type {Map<string, { durationMinutes: number, isPrimary: boolean }>} */
+    const map = new Map();
+    allocations.forEach((a, i) => {
+      map.set(a.task.id, {
+        durationMinutes: a.durationMinutes,
+        isPrimary: i === 0,
+      });
+    });
+    return map;
+  }, [tasks, currentHour]);
+  const runwayPrimaryId = useMemo(() => {
+    const allocations = getActiveRunwayAllocations(tasks, currentHour);
+    return allocations[0]?.task.id ?? null;
+  }, [tasks, currentHour]);
   const toggleComplete = useToggleTaskCompleteMutation();
   const reorderTasks = useReorderTasksMutation();
   const activeTaskId = useTaskStore((s) => s.activeTimer.taskId);
   const isTimerRunning = useTaskStore((s) => s.activeTimer.isRunning);
 
   const { activate } = useActivateFocusTask();
-  const displayTasks = useMemo(() => getTodayDisplayTasks(tasks), [tasks]);
+  const displayTasks = useMemo(
+    () => getTodayDisplayTasks(tasks, { currentHour }),
+    [tasks, currentHour]
+  );
   const completedCount = tasks.filter((t) => t.status === "Completed").length;
 
   const syncStatusOrder = useCallback(
@@ -379,6 +457,8 @@ export function TodayChecklist() {
         </motion.span>
       </div>
 
+      <ActiveTimeBlockHero tasks={tasks} />
+
       <section
         data-kanban-zone={TODAY_ZONE}
         data-no-drop-highlight
@@ -409,9 +489,20 @@ export function TodayChecklist() {
                     isTimerTask && isTimerRunning && task.status === "In-Progress";
                   const isFocusPaused =
                     isTimerTask && !isTimerRunning && task.status === "In-Progress";
-                  const isInQueue =
-                    task.status === "In-Progress" && !isTimerTask;
                   const isTopFocus = isFocusRunning;
+                  const isActiveTimeBlock =
+                    activeBlockIds.has(task.id) && task.status !== "Completed";
+                  const blockMeta = liveBlockMeta.get(task.id);
+                  const isRunwayPrimary = task.id === runwayPrimaryId;
+                  const isRunwayFocusReady =
+                    isActiveTimeBlock &&
+                    isRunwayPrimary &&
+                    !(isTimerTask && isTimerRunning) &&
+                    task.status !== "Completed";
+                  const isInQueue =
+                    task.status === "In-Progress" &&
+                    !isTimerTask &&
+                    !isActiveTimeBlock;
 
                   return (
                     <TodayTaskRow
@@ -423,9 +514,20 @@ export function TodayChecklist() {
                       isFocusPaused={isFocusPaused}
                       isInQueue={isInQueue}
                       isTopFocus={isTopFocus}
+                      isActiveTimeBlock={isActiveTimeBlock}
+                      isRunwayFocusReady={isRunwayFocusReady}
+                      isRunwayPrimary={isRunwayPrimary}
+                      slotDurationMinutes={blockMeta?.durationMinutes}
                       onDragStart={handleDragStart}
                       onToggle={handleToggle}
-                      onActivate={() => activate(task.id)}
+                      onActivate={() =>
+                        activate(
+                          task.id,
+                          blockMeta
+                            ? buildRunwayFocusTimerOptions(blockMeta.durationMinutes)
+                            : undefined
+                        )
+                      }
                       isPending={toggleComplete.isPending}
                     />
                   );
