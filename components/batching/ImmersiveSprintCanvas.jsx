@@ -20,6 +20,7 @@ import { SprintVelocityBar } from "./SprintVelocityBar";
  * @param {number} props.total
  * @param {number | null} props.sprintStartedAt
  * @param {import('@/hooks/useBatchingSession').CardExitMode} props.cardExitMode
+ * @param {boolean} props.celebratingComplete
  * @param {() => void} props.onComplete
  * @param {() => void} props.onDefer
  * @param {() => void} props.onSkipToEnd
@@ -33,6 +34,7 @@ export function ImmersiveSprintCanvas({
   total,
   sprintStartedAt,
   cardExitMode,
+  celebratingComplete,
   onComplete,
   onDefer,
   onSkipToEnd,
@@ -136,7 +138,7 @@ export function ImmersiveSprintCanvas({
           <button
             type="button"
             onClick={onComplete}
-            disabled={!currentTask || Boolean(cardExitMode)}
+            disabled={!currentTask || Boolean(cardExitMode) || celebratingComplete}
             className="group flex w-full max-w-sm items-center justify-center gap-3 rounded-full border-2 border-gold bg-gold/20 px-8 py-4 transition hover:bg-gold/35 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <span className="flex h-9 w-9 items-center justify-center rounded-lg border-2 border-gold-dark bg-gold text-charcoal shadow-glass transition group-hover:scale-105">
@@ -150,7 +152,7 @@ export function ImmersiveSprintCanvas({
           <button
             type="button"
             onClick={onDefer}
-            disabled={!currentTask || Boolean(cardExitMode) || total <= 1}
+            disabled={!currentTask || Boolean(cardExitMode) || celebratingComplete || total <= 1}
             className="inline-flex items-center gap-2 rounded-full bg-white/70 px-5 py-2.5 text-sm font-medium text-charcoal/60 shadow-glass transition hover:bg-white hover:text-charcoal disabled:opacity-40"
           >
             <CornerDownLeft size={16} className="rotate-[-90deg]" />

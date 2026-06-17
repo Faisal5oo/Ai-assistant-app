@@ -28,6 +28,7 @@
  * @property {number} actualTimeSpent - milliseconds
  * @property {number} [completedPomodoros]
  * @property {string[]} tags
+ * @property {string} [batchCategory] - task batching bucket id
  * @property {string} [scheduledAt] - ISO date string for timeline
  * @property {TimeBlockAllocation[]} [timeBlockAllocations]
  * @property {string} [description]

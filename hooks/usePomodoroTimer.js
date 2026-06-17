@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { POMODORO_SECONDS } from "@/lib/pomodoroConstants";
+import { phaseToSessionType } from "@/lib/pomodoroSessionStorage";
+import { checkpointPomodoroTimerRemote } from "@/lib/workspaceSync";
 
 const STORAGE_KEY = "taskflow_pomodoro_state";
 
@@ -35,14 +37,20 @@ function clearState() {
   try { localStorage.removeItem(STORAGE_KEY); } catch {}
 }
 
+/** @returns {import('@/lib/pomodoroConstants').PersistedState | null} */
+export function readLocalPomodoroTimerDisplayState() {
+  return loadState();
+}
+
 /**
  * @typedef {'work' | 'shortBreak' | 'longBreak'} PomodoroPhase
  *
  * @param {Object} options
  * @param {(phase: PomodoroPhase) => void} [options.onSessionComplete]
  * @param {number} [options.customWorkSeconds]  - custom work duration in seconds
+ * @param {import('react').MutableRefObject<{ id: string, taskId?: string | null, startedAt: string } | null>} [options.sessionMetaRef]
  */
-export function usePomodoroTimer({ onSessionComplete, customWorkSeconds } = {}) {
+export function usePomodoroTimer({ onSessionComplete, customWorkSeconds, sessionMetaRef } = {}) {
   const restored = useRef(loadState());
 
   // Build phase durations — custom work seconds override only the work phase
@@ -68,10 +76,27 @@ export function usePomodoroTimer({ onSessionComplete, customWorkSeconds } = {}) 
 
   useEffect(() => { onCompleteRef.current = onSessionComplete; }, [onSessionComplete]);
 
-  // Persist on every meaningful state change
+  // Persist on every meaningful state change + cloud checkpoint
   useEffect(() => {
     saveState({ phase, secondsLeft, isRunning, cycle: cycleRef.current, savedAt: Date.now() });
-  }, [phase, secondsLeft, isRunning]);
+
+    const meta = sessionMetaRef?.current;
+    if (!meta?.id) return;
+
+    checkpointPomodoroTimerRemote({
+      sessionId: meta.id,
+      taskId: meta.taskId ?? null,
+      phase,
+      type: phaseToSessionType(phase),
+      secondsLeft,
+      isRunning,
+      workMinutes: Math.round((customWorkSeconds ?? POMODORO_SECONDS.work) / 60),
+      cycle: cycleRef.current,
+      startedAt: meta.startedAt,
+      timerStartedAt: isRunning ? Date.now() : null,
+      updatedAt: Date.now(),
+    });
+  }, [phase, secondsLeft, isRunning, customWorkSeconds, sessionMetaRef]);
 
   const clearTick = useCallback(() => {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
@@ -144,6 +169,17 @@ export function usePomodoroTimer({ onSessionComplete, customWorkSeconds } = {}) 
     advancePhase(false);
   }, [clearTick, advancePhase]);
 
+  const restoreFromRemote = useCallback(
+    (remote) => {
+      if (!remote?.sessionId) return;
+      clearTick();
+      cycleRef.current = remote.cycle ?? 0;
+      syncDisplay(remote.phase, remote.secondsLeft);
+      setIsRunning(remote.isRunning);
+    },
+    [clearTick, syncDisplay]
+  );
+
   // When customWorkSeconds changes while idle on work phase, reset seconds
   useEffect(() => {
     if (!isRunning && phase === "work") {
@@ -154,5 +190,5 @@ export function usePomodoroTimer({ onSessionComplete, customWorkSeconds } = {}) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customWorkSeconds]);
 
-  return { phase, secondsLeft, totalSeconds, progress, isRunning, workSessionsInCycle: cycleRef.current, start, pause, reset, skip };
+  return { phase, secondsLeft, totalSeconds, progress, isRunning, workSessionsInCycle: cycleRef.current, start, pause, reset, skip, restoreFromRemote };
 }

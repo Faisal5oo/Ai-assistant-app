@@ -86,7 +86,7 @@ export async function PATCH(request) {
     await connectDB();
 
     const dashboard = await getOrCreateDashboard(auth.id);
-    const { addDailyMs, pomodoroDaily, pomodoroIncrement, activeFocusSession, activeDeepWorkSession, deepWorkDaily } =
+    const { addDailyMs, pomodoroDaily, pomodoroIncrement, activeFocusSession, activeDeepWorkSession, activeBatchSprint, activePomodoroTimer, activeTimeBlockRunway, deepWorkDaily } =
       parsed.data;
 
     if (addDailyMs) {
@@ -111,6 +111,33 @@ export async function PATCH(request) {
     } else if (activeDeepWorkSession) {
       dashboard.activeDeepWorkSession = {
         ...activeDeepWorkSession,
+        updatedAt: new Date(),
+      };
+    }
+
+    if (activeBatchSprint === null) {
+      dashboard.set("activeBatchSprint", undefined);
+    } else if (activeBatchSprint) {
+      dashboard.activeBatchSprint = {
+        ...activeBatchSprint,
+        updatedAt: new Date(),
+      };
+    }
+
+    if (activePomodoroTimer === null) {
+      dashboard.set("activePomodoroTimer", undefined);
+    } else if (activePomodoroTimer) {
+      dashboard.activePomodoroTimer = {
+        ...activePomodoroTimer,
+        updatedAt: new Date(),
+      };
+    }
+
+    if (activeTimeBlockRunway === null) {
+      dashboard.set("activeTimeBlockRunway", undefined);
+    } else if (activeTimeBlockRunway) {
+      dashboard.activeTimeBlockRunway = {
+        ...activeTimeBlockRunway,
         updatedAt: new Date(),
       };
     }

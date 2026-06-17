@@ -1,8 +1,19 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useTasks } from "@/hooks/queries/useTasksQuery";
+import {
+  endBatchSprintImperative,
+  updateBatchCategoryImperative,
+} from "@/lib/imperative-mutations";
+import { useWorkspaceMountSync } from "@/hooks/useWorkspaceMountSync";
+import { readBatchSprintFromStorage } from "@/lib/batchSprintStorage";
+import {
+  reconcileBatchSprint,
+  shouldPreferRemote,
+} from "@/lib/workspaceReconciliation";
+import { checkpointBatchSprintRemote } from "@/lib/workspaceSync";
 import {
   buildBatchLayout,
   computeFocusEfficiency,
@@ -26,26 +37,79 @@ import {
  * @property {string} bucketTitle
  */
 
+/**
+ * @param {import('@/lib/batchSprintStorage').PersistedBatchSprint | null} sprint
+ * @param {import('@/types/interfaces').Task[]} tasks
+ * @returns {import('@/lib/batchSprintStorage').PersistedBatchSprint | null}
+ */
+function reconcileSprintQueue(sprint, tasks) {
+  if (!sprint || sprint.phase !== "execution") return sprint;
+
+  const categoryTasks = tasks.filter(
+    (t) => t.status !== "Completed" && t.batchCategory === sprint.category
+  );
+  const validIds = new Set(categoryTasks.map((t) => t.id));
+  const completedSet = new Set(sprint.completedIds);
+
+  const queue = sprint.queue.filter(
+    (id) => validIds.has(id) && !completedSet.has(id)
+  );
+
+  for (const task of categoryTasks) {
+    if (!completedSet.has(task.id) && !queue.includes(task.id)) {
+      queue.push(task.id);
+    }
+  }
+
+  if (queue.length === 0 && sprint.queue.length > 0) {
+    return { ...sprint, queue: [], phase: "recap" };
+  }
+
+  return { ...sprint, queue };
+}
+
 export function useBatchingSession() {
-  const { tasks } = useTasks();
+  const { tasks, isLoading } = useTasks();
   const toggleTaskComplete = useTaskStore((s) => s.toggleTaskComplete);
   const recordDeepWorkSession = useTaskStore((s) => s.recordDeepWorkSession);
-  const setBatchingFocusMode = useTaskStore((s) => s.setBatchingFocusMode);
+  const activeBatchSprint = useTaskStore((s) => s.activeBatchSprint);
+  const setActiveBatchSprint = useTaskStore((s) => s.setActiveBatchSprint);
+  const clearActiveBatchSprint = useTaskStore((s) => s.clearActiveBatchSprint);
+  const hydrateActiveBatchSprint = useTaskStore((s) => s.hydrateActiveBatchSprint);
 
-  const [phase, setPhase] = useState(/** @type {BatchingPhase} */ ("clustering"));
-  const [overrides, setOverrides] = useState(/** @type {Record<string, string>} */ ({}));
   const [customBuckets, setCustomBuckets] = useState(/** @type {BatchBucketDef[]} */ ([]));
   const [bucketTitleOverrides, setBucketTitleOverrides] = useState(
     /** @type {Record<string, string>} */ ({})
   );
-  const [activeBucketId, setActiveBucketId] = useState(/** @type {string | null} */ (null));
-  const [queue, setQueue] = useState(/** @type {string[]} */ ([]));
-  const [initialQueueLength, setInitialQueueLength] = useState(0);
-  const [completedIds, setCompletedIds] = useState(/** @type {string[]} */ ([]));
-  const [skippedCount, setSkippedCount] = useState(0);
-  const [sprintStartedAt, setSprintStartedAt] = useState(/** @type {number | null} */ (null));
-  const [finalElapsedMs, setFinalElapsedMs] = useState(0);
   const [cardExitMode, setCardExitMode] = useState(/** @type {CardExitMode} */ (null));
+  const [celebratingComplete, setCelebratingComplete] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    hydrateActiveBatchSprint();
+    setHydrated(true);
+  }, [hydrateActiveBatchSprint]);
+
+  useWorkspaceMountSync("batching", {
+    onBatching: useCallback(
+      (workspace) => {
+        const local = readBatchSprintFromStorage();
+        const remote = workspace.activeBatchSprint ?? null;
+        const winner = reconcileBatchSprint(local, remote);
+
+        if (winner) {
+          setActiveBatchSprint(winner);
+        } else if (!local && !remote) {
+          clearActiveBatchSprint();
+        }
+
+        if (local && remote && !shouldPreferRemote(local, remote)) {
+          checkpointBatchSprintRemote(local);
+        }
+      },
+      [setActiveBatchSprint, clearActiveBatchSprint]
+    ),
+  });
 
   const buckets = useMemo(
     () => getAllBuckets(customBuckets, bucketTitleOverrides),
@@ -53,35 +117,66 @@ export function useBatchingSession() {
   );
 
   const { clusters, unbatched } = useMemo(
-    () => buildBatchLayout(tasks, overrides, customBuckets),
-    [tasks, overrides, customBuckets]
+    () => buildBatchLayout(tasks, customBuckets),
+    [tasks, customBuckets]
+  );
+
+  const phase = useMemo(/** @returns {BatchingPhase} */ () => {
+    if (!activeBatchSprint) return "clustering";
+    if (activeBatchSprint.phase === "recap") return "recap";
+    return "execution";
+  }, [activeBatchSprint]);
+
+  const activeBucketId = activeBatchSprint?.category ?? null;
+  const queue = activeBatchSprint?.queue ?? [];
+  const completedIds = activeBatchSprint?.completedIds ?? [];
+  const skippedCount = activeBatchSprint?.skippedCount ?? 0;
+  const initialQueueLength = activeBatchSprint?.initialQueueLength ?? 0;
+  const sprintStartedAt = activeBatchSprint?.startedAt ?? null;
+  const finalElapsedMs = activeBatchSprint?.finalElapsedMs ?? 0;
+
+  useEffect(() => {
+    if (
+      !hydrated ||
+      isLoading ||
+      !activeBatchSprint ||
+      activeBatchSprint.phase !== "execution"
+    ) {
+      return;
+    }
+    const reconciled = reconcileSprintQueue(activeBatchSprint, tasks);
+    if (
+      reconciled &&
+      (reconciled.queue.length !== activeBatchSprint.queue.length ||
+        reconciled.phase !== activeBatchSprint.phase)
+    ) {
+      setActiveBatchSprint(reconciled);
+    }
+  }, [tasks, isLoading, hydrated, activeBatchSprint, setActiveBatchSprint]);
+
+  const patchSprint = useCallback(
+    /** @param {Partial<import('@/lib/batchSprintStorage').PersistedBatchSprint>} patch */
+    (patch) => {
+      if (!activeBatchSprint) return;
+      setActiveBatchSprint({ ...activeBatchSprint, ...patch });
+    },
+    [activeBatchSprint, setActiveBatchSprint]
   );
 
   const removeTaskFromBucket = useCallback((taskId) => {
-    setOverrides((prev) => {
-      if (!(taskId in prev)) return prev;
-      const next = { ...prev };
-      delete next[taskId];
-      return next;
-    });
+    updateBatchCategoryImperative(taskId, null);
   }, []);
 
   const assignTaskToBucket = useCallback((taskId, bucketId) => {
-    setOverrides((prev) => {
-      if (prev[taskId] === bucketId) return prev;
-      return { ...prev, [taskId]: bucketId };
-    });
+    updateBatchCategoryImperative(taskId, bucketId);
   }, []);
 
   const moveTask = useCallback(
     (taskId, zoneId) => {
-      if (zoneId === POOL_ZONE_ID) {
-        removeTaskFromBucket(taskId);
-        return;
-      }
-      assignTaskToBucket(taskId, zoneId);
+      const batchCategory = zoneId === POOL_ZONE_ID ? null : zoneId;
+      updateBatchCategoryImperative(taskId, batchCategory);
     },
-    [removeTaskFromBucket, assignTaskToBucket]
+    []
   );
 
   const createCustomBucket = useCallback(() => {
@@ -105,21 +200,21 @@ export function useBatchingSession() {
     );
   }, []);
 
-  const deleteCustomBucket = useCallback((bucketId) => {
-    setCustomBuckets((prev) => prev.filter((b) => b.id !== bucketId));
-    setOverrides((prev) => {
-      const next = { ...prev };
-      for (const [taskId, assigned] of Object.entries(next)) {
-        if (assigned === bucketId) delete next[taskId];
+  const deleteCustomBucket = useCallback(
+    (bucketId) => {
+      const bucketTasks = clusters[bucketId] ?? [];
+      for (const task of bucketTasks) {
+        updateBatchCategoryImperative(task.id, null);
       }
-      return next;
-    });
-    setBucketTitleOverrides((prev) => {
-      const next = { ...prev };
-      delete next[bucketId];
-      return next;
-    });
-  }, []);
+      setCustomBuckets((prev) => prev.filter((b) => b.id !== bucketId));
+      setBucketTitleOverrides((prev) => {
+        const next = { ...prev };
+        delete next[bucketId];
+        return next;
+      });
+    },
+    [clusters]
+  );
 
   const startSprint = useCallback(
     (bucketId) => {
@@ -127,89 +222,161 @@ export function useBatchingSession() {
       if (!bucketTasks?.length) return false;
 
       const ids = bucketTasks.map((t) => t.id);
-      setActiveBucketId(bucketId);
-      setQueue(ids);
-      setInitialQueueLength(ids.length);
-      setCompletedIds([]);
-      setSkippedCount(0);
-      setFinalElapsedMs(0);
-      setCardExitMode(null);
-      setSprintStartedAt(Date.now());
-      setBatchingFocusMode(true);
-      setPhase("execution");
+      setActiveBatchSprint({
+        category: bucketId,
+        phase: "execution",
+        startedAt: Date.now(),
+        queue: ids,
+        completedIds: [],
+        skippedCount: 0,
+        initialQueueLength: ids.length,
+        finalElapsedMs: 0,
+      });
       return true;
     },
-    [clusters, setBatchingFocusMode]
+    [clusters, setActiveBatchSprint]
   );
 
+  const finishCelebrationAndAdvance = useCallback(() => {
+    if (!activeBatchSprint || !queue.length) return;
+
+    const [currentId, ...rest] = queue;
+    toggleTaskComplete(currentId);
+    const nextCompleted = [...completedIds, currentId];
+    setCardExitMode(null);
+    setCelebratingComplete(false);
+
+    if (rest.length === 0) {
+      setActiveBatchSprint({
+        ...activeBatchSprint,
+        queue: [],
+        completedIds: nextCompleted,
+        phase: "recap",
+      });
+      return;
+    }
+
+    patchSprint({ queue: rest, completedIds: nextCompleted });
+  }, [
+    activeBatchSprint,
+    queue,
+    completedIds,
+    toggleTaskComplete,
+    patchSprint,
+    setActiveBatchSprint,
+  ]);
+
   const completeCurrentTask = useCallback(() => {
-    if (!queue.length || cardExitMode) return;
+    if (!queue.length || cardExitMode || celebratingComplete) return;
     setCardExitMode("complete");
+    setCelebratingComplete(true);
+  }, [queue, cardExitMode, celebratingComplete]);
 
-    window.setTimeout(() => {
-      const [currentId, ...rest] = queue;
-      toggleTaskComplete(currentId);
-      setCompletedIds((prev) => [...prev, currentId]);
-      setQueue(rest);
-      setCardExitMode(null);
-
-      if (rest.length === 0) {
-        setPhase("recap");
-        setBatchingFocusMode(false);
-      }
-    }, 340);
-  }, [queue, toggleTaskComplete, cardExitMode, setBatchingFocusMode]);
+  useEffect(() => {
+    if (!celebratingComplete) return undefined;
+    const timer = window.setTimeout(finishCelebrationAndAdvance, 1100);
+    return () => window.clearTimeout(timer);
+  }, [celebratingComplete, finishCelebrationAndAdvance]);
 
   const deferCurrentTask = useCallback(() => {
-    if (!queue.length || cardExitMode) return;
+    if (!queue.length || cardExitMode || celebratingComplete) return;
     if (queue.length <= 1) return;
 
     setCardExitMode("defer");
 
     window.setTimeout(() => {
       const [currentId, ...rest] = queue;
-      setQueue([...rest, currentId]);
+      patchSprint({ queue: [...rest, currentId] });
       setCardExitMode(null);
     }, 380);
-  }, [queue, cardExitMode]);
+  }, [queue, cardExitMode, celebratingComplete, patchSprint]);
 
   const skipToEndOfBatch = useCallback(() => {
-    if (!queue.length) return;
+    if (!activeBatchSprint || !queue.length) return;
     const remaining = queue.length;
-    setSkippedCount((n) => n + remaining);
-    setQueue([]);
-    setBatchingFocusMode(false);
-    setPhase("recap");
-  }, [queue, setBatchingFocusMode]);
+    setActiveBatchSprint({
+      ...activeBatchSprint,
+      queue: [],
+      skippedCount: skippedCount + remaining,
+      phase: "recap",
+    });
+  }, [activeBatchSprint, queue, skippedCount, setActiveBatchSprint]);
 
-  const finishSprintTimer = useCallback((elapsedMs) => {
-    setFinalElapsedMs(elapsedMs);
-  }, []);
+  const finishSprintTimer = useCallback(
+    (elapsedMs) => {
+      if (!activeBatchSprint) return;
+      patchSprint({ finalElapsedMs: elapsedMs });
+    },
+    [activeBatchSprint, patchSprint]
+  );
 
-  const exitToDashboard = useCallback(() => {
-    setBatchingFocusMode(false);
+  const logSprintToDatabase = useCallback(
+    async (elapsedMs, status) => {
+      if (!activeBatchSprint) return;
+
+      const bucket = getBucketById(
+        activeBatchSprint.category,
+        customBuckets,
+        bucketTitleOverrides
+      );
+      const total =
+        activeBatchSprint.initialQueueLength ||
+        completedIds.length + skippedCount;
+      const focusEfficiency = computeFocusEfficiency(
+        completedIds.length,
+        skippedCount,
+        total
+      );
+
+      await endBatchSprintImperative({
+        batchCategory: activeBatchSprint.category,
+        bucketTitle: bucket.title,
+        sessionStartedAt: new Date(activeBatchSprint.startedAt).toISOString(),
+        durationMs: elapsedMs,
+        tasksTotal: total,
+        tasksCompleted: completedIds.length,
+        tasksSkipped: skippedCount,
+        focusEfficiency,
+        status,
+      });
+    },
+    [activeBatchSprint, customBuckets, bucketTitleOverrides, completedIds, skippedCount]
+  );
+
+  const exitToDashboard = useCallback(async () => {
     setCardExitMode(null);
+    setCelebratingComplete(false);
 
-    if (completedIds.length > 0 && finalElapsedMs > 0) {
-      const share = Math.floor(finalElapsedMs / completedIds.length);
+    const elapsed =
+      finalElapsedMs > 0
+        ? finalElapsedMs
+        : sprintStartedAt
+          ? Date.now() - sprintStartedAt
+          : 0;
+
+    if (activeBatchSprint && phase === "recap") {
+      await logSprintToDatabase(elapsed, "completed");
+    } else if (activeBatchSprint && phase === "execution") {
+      await logSprintToDatabase(elapsed, "abandoned");
+    }
+
+    if (completedIds.length > 0 && elapsed > 0) {
+      const share = Math.floor(elapsed / completedIds.length);
       for (const id of completedIds) {
         recordDeepWorkSession(id, share);
       }
     }
 
-    setPhase("clustering");
-    setActiveBucketId(null);
-    setQueue([]);
-    setInitialQueueLength(0);
-    setCompletedIds([]);
-    setSkippedCount(0);
-    setSprintStartedAt(null);
-    setFinalElapsedMs(0);
+    clearActiveBatchSprint();
   }, [
-    completedIds,
+    activeBatchSprint,
+    phase,
     finalElapsedMs,
+    sprintStartedAt,
+    completedIds,
+    logSprintToDatabase,
     recordDeepWorkSession,
-    setBatchingFocusMode,
+    clearActiveBatchSprint,
   ]);
 
   const recapStats = useMemo(/** @returns {BatchSprintStats | null} */ () => {
@@ -219,8 +386,7 @@ export function useBatchingSession() {
       customBuckets,
       bucketTitleOverrides
     );
-    const total =
-      initialQueueLength || completedIds.length + skippedCount;
+    const total = initialQueueLength || completedIds.length + skippedCount;
 
     const elapsedFallback =
       sprintStartedAt != null ? Date.now() - sprintStartedAt : 0;
@@ -248,10 +414,15 @@ export function useBatchingSession() {
     sprintStartedAt,
   ]);
 
+  const sprintTasks = useMemo(() => {
+    if (!activeBatchSprint) return tasks;
+    return tasks.filter((t) => t.batchCategory === activeBatchSprint.category);
+  }, [tasks, activeBatchSprint]);
+
   const currentTask = useMemo(() => {
     if (!queue.length) return null;
-    return tasks.find((t) => t.id === queue[0]) ?? null;
-  }, [queue, tasks]);
+    return sprintTasks.find((t) => t.id === queue[0]) ?? null;
+  }, [queue, sprintTasks]);
 
   const activeBucket = activeBucketId
     ? getBucketById(activeBucketId, customBuckets, bucketTitleOverrides)
@@ -264,9 +435,9 @@ export function useBatchingSession() {
     clusters,
     unbatched,
     buckets,
-    overrides,
     activeBucket,
     activeBucketId,
+    activeBatchSprint,
     queue,
     currentTask,
     currentTaskIndex,
@@ -276,6 +447,7 @@ export function useBatchingSession() {
     sprintStartedAt,
     recapStats,
     cardExitMode,
+    celebratingComplete,
     moveTask,
     assignTaskToBucket,
     removeTaskFromBucket,
@@ -288,6 +460,6 @@ export function useBatchingSession() {
     skipToEndOfBatch,
     finishSprintTimer,
     exitToDashboard,
-    tasks,
+    tasks: sprintTasks,
   };
 }

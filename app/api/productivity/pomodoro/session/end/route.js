@@ -129,6 +129,10 @@ export async function POST(request) {
       }
     }
 
+    const dashboard = await getOrCreateDashboard(auth.id);
+    dashboard.set("activePomodoroTimer", undefined);
+    await dashboard.save();
+
     return NextResponse.json({
       success: true,
       sessionLog: {

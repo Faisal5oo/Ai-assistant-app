@@ -2,15 +2,21 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
-import { dashboardApi } from "@/lib/api-client";
 import {
   readFocusSessionFromStorage,
   toActiveTimerFromPersisted,
+  writeFocusSessionToStorage,
 } from "@/lib/focusSessionStorage";
 import {
   mirrorFocusSessionLocal,
   snapshotRunningSession,
 } from "@/lib/focusSessionSync";
+import {
+  reconcileFocusSession,
+  shouldPreferRemote,
+  recalculateFocusSession,
+} from "@/lib/workspaceReconciliation";
+import { fetchActiveWorkspace, checkpointFocusSessionRemote } from "@/lib/workspaceSync";
 import { useTasksQuery } from "@/hooks/queries/useTasksQuery";
 import { clearActiveTimer } from "@/lib/taskStatusTimerSync";
 import { useTaskStore } from "@/store/useTaskStore";
@@ -41,23 +47,39 @@ export function TimerPersistenceBridge() {
         activeTimer: toActiveTimerFromPersisted(session),
         activeTechnique: session.activeTechnique ?? null,
       });
+      writeFocusSessionToStorage(
+        toActiveTimerFromPersisted(session),
+        session.activeTechnique ?? null
+      );
       skipMirrorRef.current = false;
     };
 
     const hydrate = async () => {
       const local = readFocusSessionFromStorage();
-      if (local?.taskId) {
-        applySession(local);
-        return;
-      }
 
       try {
-        const { dashboard } = await dashboardApi.get();
-        if (dashboard.activeFocusSession?.taskId) {
-          applySession(dashboard.activeFocusSession);
+        const workspace = await fetchActiveWorkspace();
+        if (cancelled) return;
+
+        const remote = workspace.activeFocusSession ?? null;
+        const winner = reconcileFocusSession(local, remote);
+
+        if (winner) {
+          applySession(winner);
+          if (local && remote && !shouldPreferRemote(local, remote)) {
+            checkpointFocusSessionRemote(recalculateFocusSession(local));
+          }
+          return;
+        }
+
+        if (local?.taskId) {
+          applySession(recalculateFocusSession(local));
+          checkpointFocusSessionRemote(recalculateFocusSession(local));
         }
       } catch {
-        /* unauthenticated or offline */
+        if (local?.taskId) {
+          applySession(recalculateFocusSession(local));
+        }
       }
     };
 

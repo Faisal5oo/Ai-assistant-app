@@ -18,9 +18,12 @@ import {
   computeMinutesSaved,
   purgeDeepWorkSessionStorage,
 } from "@/lib/deepWorkSessionStorage";
-import { dashboardApi } from "@/lib/api-client";
-import { getQueryClient } from "@/lib/query-client";
-import { queryKeys } from "@/lib/query-keys";
+import {
+  reconcileDeepWorkSession,
+  shouldPreferRemote,
+  recalculateDeepWorkSession,
+} from "@/lib/workspaceReconciliation";
+import { fetchActiveWorkspace, checkpointDeepWorkSessionRemote } from "@/lib/workspaceSync";
 
 /** @typedef {import('@/lib/deepWorkConstants').DeepWorkPhase} DeepWorkPhase */
 
@@ -87,38 +90,45 @@ export function useDeepWorkSession() {
     };
 
     const hydrate = async () => {
-      /** @type {import('@/lib/deepWorkSessionStorage').PersistedDeepWorkSession | null | undefined} */
-      let remoteSession = null;
+      const local = readDeepWorkSessionFromStorage();
 
-      const cached = getQueryClient().getQueryData(queryKeys.dashboard);
-      if (cached && "activeDeepWorkSession" in cached) {
-        remoteSession = cached.activeDeepWorkSession ?? null;
-      } else {
-        try {
-          const { dashboard } = await dashboardApi.get();
-          remoteSession = dashboard.activeDeepWorkSession ?? null;
-        } catch {
-          /* unauthenticated or offline */
+      try {
+        const workspace = await fetchActiveWorkspace();
+        if (cancelled) return;
+
+        const remote = workspace.activeDeepWorkSession ?? null;
+        const winner = reconcileDeepWorkSession(local, remote);
+
+        if (!winner?.sessionId) {
+          purgeDeepWorkSessionStorage();
+          if (!cancelled) {
+            setSession(null);
+            setDistractions([]);
+            setPhase("setup");
+            setDeepWorkFocusMode(false);
+          }
+          return;
         }
-      }
 
-      if (!remoteSession?.sessionId) {
-        purgeDeepWorkSessionStorage();
-        if (!cancelled) {
+        applyPersisted(winner);
+        persistDeepWorkSession(
+          toDeepWorkSessionFromPersisted(winner),
+          winner.phase ?? "active",
+          winner.distractions ?? []
+        );
+
+        if (local && remote && !shouldPreferRemote(local, remote)) {
+          checkpointDeepWorkSessionRemote(recalculateDeepWorkSession(local));
+        }
+      } catch {
+        if (local?.sessionId) {
+          applyPersisted(local);
+        } else if (!cancelled) {
           setSession(null);
-          setDistractions([]);
           setPhase("setup");
           setDeepWorkFocusMode(false);
         }
-        return;
       }
-
-      applyPersisted(remoteSession);
-      persistDeepWorkSession(
-        toDeepWorkSessionFromPersisted(remoteSession),
-        remoteSession.phase ?? "active",
-        remoteSession.distractions ?? []
-      );
     };
 
     hydrate();

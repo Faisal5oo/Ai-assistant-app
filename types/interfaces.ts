@@ -18,6 +18,7 @@ export interface Task {
   actualTimeSpent: number;
   completedPomodoros: number;
   tags: string[];
+  batchCategory?: string;
   scheduledAt?: string;
   timeBlockAllocations?: TimeBlockAllocation[];
   description?: string;

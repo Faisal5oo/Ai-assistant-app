@@ -7,6 +7,13 @@ import { ArrowLeft, CalendarClock } from "lucide-react";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useTasks } from "@/hooks/queries/useTasksQuery";
 import { useCurrentClock } from "@/hooks/useCurrentClock";
+import { useWorkspaceMountSync } from "@/hooks/useWorkspaceMountSync";
+import { hoistRunwayPrimaryImperative } from "@/lib/hoistRunwayPrimaryImperative";
+import {
+  reconcileTimeBlockRunway,
+  hasLiveTimeBlockAllocation,
+} from "@/lib/workspaceReconciliation";
+import { todayKey, format } from "@/lib/utils";
 import {
   buildSlotAssignmentMap,
   getActiveRunwayAllocations,
@@ -15,7 +22,6 @@ import {
 } from "@/lib/timeBlocking";
 import { computeAllocationPlan } from "@/lib/time-block-allocations";
 import { completeTaskImperative } from "@/lib/imperative-mutations";
-import { format } from "@/lib/utils";
 import { ActiveRunwayBar } from "./ActiveRunwayBar";
 import { BrainDumpPanel } from "./BrainDumpPanel";
 import { SlotCapacityWarning } from "./SlotCapacityWarning";
@@ -25,9 +31,46 @@ export function TimeBlockingWorkstation() {
   const { tasks } = useTasks();
   const assignTimeBlock = useTaskStore((s) => s.assignTimeBlock);
   const unassignTimeBlock = useTaskStore((s) => s.unassignTimeBlock);
+  const runwayLiveHour = useTaskStore((s) => s.runwayLiveHour);
+  const setRunwayLiveHour = useTaskStore((s) => s.setRunwayLiveHour);
 
   const now = useCurrentClock(60000);
   const currentHour = useMemo(() => getCurrentHour(now), [now]);
+  const dateKey = useMemo(() => todayKey(), []);
+
+  useWorkspaceMountSync("time-blocking", {
+    onTimeBlocking: useCallback(
+      async (workspace) => {
+        const local =
+          runwayLiveHour != null
+            ? { date: dateKey, hour: runwayLiveHour, updatedAt: Date.now() }
+            : null;
+        const remote = workspace.activeTimeBlockRunway ?? null;
+        const winner = reconcileTimeBlockRunway(
+          local,
+          remote,
+          dateKey,
+          currentHour
+        );
+
+        const liveFromTasks = hasLiveTimeBlockAllocation(
+          workspace.activeTimeBlock,
+          dateKey,
+          currentHour
+        );
+
+        const hourToApply = winner?.hour ?? (liveFromTasks ? currentHour : null);
+        if (hourToApply == null) {
+          setRunwayLiveHour(null);
+          return;
+        }
+
+        setRunwayLiveHour(hourToApply);
+        await hoistRunwayPrimaryImperative(hourToApply).catch(() => {});
+      },
+      [runwayLiveHour, dateKey, currentHour, setRunwayLiveHour]
+    ),
+  });
 
   const slotMap = useMemo(() => buildSlotAssignmentMap(tasks), [tasks]);
 

@@ -8,7 +8,7 @@ import { useTaskStore } from "@/store/useTaskStore";
 import { useTasks } from "@/hooks/queries/useTasksQuery";
 import { useDashboard } from "@/hooks/queries/useDashboardQuery";
 import { useProductivitySummary } from "@/hooks/queries/useProductivitySummaryQuery";
-import { usePomodoroTimer } from "@/hooks/usePomodoroTimer";
+import { usePomodoroTimer, readLocalPomodoroTimerDisplayState } from "@/hooks/usePomodoroTimer";
 import { playPomodoroChime } from "@/lib/pomodoroAudio";
 import {
   BREAK_PROMPTS,
@@ -23,6 +23,16 @@ import {
   readPomodoroSessionFromStorage,
   writePomodoroSessionToStorage,
 } from "@/lib/pomodoroSessionStorage";
+import { useWorkspaceMountSync } from "@/hooks/useWorkspaceMountSync";
+import {
+  reconcilePomodoroTimer,
+  shouldPreferRemote,
+  recalculatePomodoroTimer,
+} from "@/lib/workspaceReconciliation";
+import {
+  checkpointPomodoroTimerRemote,
+  clearPomodoroTimerRemote,
+} from "@/lib/workspaceSync";
 import { todayKey } from "@/lib/utils";
 import { CircularProgressRing } from "./CircularProgressRing";
 import { SessionTracker } from "./SessionTracker";
@@ -69,6 +79,7 @@ export function PomodoroWorkstation() {
   const containerControls = useAnimationControls();
   const timeoutRef = useRef(null);
   const activeSessionRef = useRef(readPomodoroSessionFromStorage());
+  const restoreTimerRef = useRef(/** @type {((remote: import('@/lib/workspaceReconciliation').PomodoroTimerState) => void) | null} */ (null));
 
   const onSessionComplete = useCallback(
     (finishedPhase, { totalSeconds, secondsLeft }) => {
@@ -98,6 +109,7 @@ export function PomodoroWorkstation() {
 
       purgePomodoroSessionStorage();
       activeSessionRef.current = null;
+      clearPomodoroTimerRemote();
       refetchSummary();
     },
     [
@@ -120,9 +132,57 @@ export function PomodoroWorkstation() {
     pause,
     reset: timerReset,
     skip: timerSkip,
+    restoreFromRemote,
   } = usePomodoroTimer({
     onSessionComplete,
     customWorkSeconds: workMinutes * 60,
+    sessionMetaRef: activeSessionRef,
+  });
+
+  restoreTimerRef.current = restoreFromRemote;
+
+  useWorkspaceMountSync("pomodoro", {
+    onPomodoro: useCallback((workspace) => {
+      const display = readLocalPomodoroTimerDisplayState();
+      const localRaw = readPomodoroSessionFromStorage();
+      const local =
+        localRaw && display
+          ? {
+              sessionId: localRaw.id,
+              taskId: localRaw.taskId ?? null,
+              phase: display.phase ?? "work",
+              type: phaseToSessionType(display.phase ?? "work"),
+              secondsLeft: display.secondsLeft ?? 0,
+              isRunning: Boolean(display.isRunning),
+              workMinutes: 25,
+              cycle: display.cycle ?? 0,
+              startedAt: localRaw.startedAt,
+              timerStartedAt: display.isRunning ? Date.now() : null,
+              updatedAt: display.savedAt ?? Date.now(),
+            }
+          : null;
+
+      const remote = workspace.activePomodoroTimer ?? null;
+      const winner = reconcilePomodoroTimer(local, remote);
+
+      if (winner) {
+        const recalculated = recalculatePomodoroTimer(winner);
+        restoreTimerRef.current?.(recalculated);
+        if (recalculated.taskId) setTaskId(recalculated.taskId);
+        activeSessionRef.current = {
+          id: recalculated.sessionId,
+          taskId: recalculated.taskId ?? null,
+          type: recalculated.type,
+          startedAt: recalculated.startedAt,
+          phase: recalculated.phase,
+        };
+        writePomodoroSessionToStorage(activeSessionRef.current);
+      }
+
+      if (local && remote && !shouldPreferRemote(local, remote)) {
+        checkpointPomodoroTimerRemote(recalculatePomodoroTimer(local));
+      }
+    }, []),
   });
 
   const finalizeAbandonedSession = useCallback(() => {
@@ -133,6 +193,7 @@ export function PomodoroWorkstation() {
     if (duration <= 0) {
       purgePomodoroSessionStorage();
       activeSessionRef.current = null;
+      clearPomodoroTimerRemote();
       return;
     }
 
@@ -146,6 +207,7 @@ export function PomodoroWorkstation() {
 
     purgePomodoroSessionStorage();
     activeSessionRef.current = null;
+    clearPomodoroTimerRemote();
     refetchSummary();
   }, [endPomodoroSession, totalSeconds, secondsLeft, refetchSummary]);
 

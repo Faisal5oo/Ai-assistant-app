@@ -42,10 +42,6 @@ export async function middleware(request) {
 
 export const config = {
   matcher: [
-    "/dashboard/:path*",
-    "/tasks/:path*",
-    "/analytics/:path*",
-    "/productivity/:path*",
-    "/auth",
+    "/api/:path*",
   ],
 };

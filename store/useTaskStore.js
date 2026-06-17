@@ -16,6 +16,8 @@ import {
   completeTaskImperative,
   allocateTimeBlockImperative,
   deallocateTimeBlockImperative,
+  updateBatchCategoryImperative,
+  endBatchSprintImperative,
 } from "@/lib/imperative-mutations";
 import { activateFocusTaskImperative } from "@/lib/activateFocusTaskImperative";
 import {
@@ -29,6 +31,17 @@ import {
   syncTimerForStatusChange,
 } from "@/lib/taskStatusTimerSync";
 import { toHighResAvatarUrl } from "@/lib/user-utils";
+import {
+  readBatchSprintFromStorage,
+  writeBatchSprintToStorage,
+  purgeBatchSprintStorage,
+} from "@/lib/batchSprintStorage";
+import {
+  checkpointBatchSprintRemote,
+  clearBatchSprintRemote,
+  checkpointTimeBlockRunwayRemote,
+  clearTimeBlockRunwayRemote,
+} from "@/lib/workspaceSync";
 
 /**
  * @typedef {import('@/types/interfaces').ActiveTimer} ActiveTimer
@@ -58,12 +71,22 @@ export const useTaskStore = create((set, get) => ({
   batchingFilterTag: null,
   deepWorkFocusMode: false,
   batchingFocusMode: false,
+  /** @type {import('@/lib/batchSprintStorage').PersistedBatchSprint | null} */
+  activeBatchSprint: null,
   flowFocusMode: false,
   pomodoroFocusMode: false,
   /** Hour block currently conducting visual takeover (no auto-timer). */
   runwayLiveHour: null,
 
-  setRunwayLiveHour: (hour) => set({ runwayLiveHour: hour }),
+  setRunwayLiveHour: (hour) => {
+    set({ runwayLiveHour: hour });
+    const date = todayKey();
+    if (hour == null) {
+      clearTimeBlockRunwayRemote();
+      return;
+    }
+    checkpointTimeBlockRunwayRemote({ date, hour, updatedAt: Date.now() });
+  },
 
   updateTask: (id, updates) => {
     updateTaskImperative(id, updates);
@@ -240,6 +263,35 @@ export const useTaskStore = create((set, get) => ({
   setDeepWorkFocusMode: (active) => set({ deepWorkFocusMode: active }),
 
   setBatchingFocusMode: (active) => set({ batchingFocusMode: active }),
+
+  /** @param {import('@/lib/batchSprintStorage').PersistedBatchSprint | null} sprint */
+  setActiveBatchSprint: (sprint) => {
+    const withTs = sprint ? { ...sprint, updatedAt: Date.now() } : null;
+    set({
+      activeBatchSprint: withTs,
+      batchingFocusMode: withTs?.phase === "execution",
+    });
+    writeBatchSprintToStorage(withTs);
+    if (withTs) {
+      checkpointBatchSprintRemote(withTs);
+    }
+  },
+
+  clearActiveBatchSprint: () => {
+    set({ activeBatchSprint: null, batchingFocusMode: false });
+    purgeBatchSprintStorage();
+    clearBatchSprintRemote();
+  },
+
+  hydrateActiveBatchSprint: () => {
+    const stored = readBatchSprintFromStorage();
+    if (stored) {
+      set({
+        activeBatchSprint: stored,
+        batchingFocusMode: stored.phase === "execution",
+      });
+    }
+  },
 
   setFlowFocusMode: (active) => set({ flowFocusMode: active }),
 

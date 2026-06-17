@@ -100,6 +100,12 @@ const TaskSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    batchCategory: {
+      type: String,
+      default: null,
+      maxlength: 64,
+      index: true,
+    },
     completedAt: {
       type: Date,
       default: null,

@@ -9,9 +9,10 @@ import { useBatchingSession } from "@/hooks/useBatchingSession";
 import { BatchManager } from "./BatchManager";
 import { ImmersiveSprintCanvas } from "./ImmersiveSprintCanvas";
 import { BatchRecap } from "./BatchRecap";
+import { BatchVictoryBurst } from "./BatchVictoryBurst";
 
 export function BatchingWorkstation() {
-  const setBatchingFocusMode = useTaskStore((s) => s.setBatchingFocusMode);
+  const clearActiveBatchSprint = useTaskStore((s) => s.clearActiveBatchSprint);
 
   const {
     phase,
@@ -21,10 +22,10 @@ export function BatchingWorkstation() {
     currentTask,
     currentTaskIndex,
     totalInSprint,
-    completedIds,
     sprintStartedAt,
     recapStats,
     cardExitMode,
+    celebratingComplete,
     buckets,
     moveTask,
     removeTaskFromBucket,
@@ -40,24 +41,32 @@ export function BatchingWorkstation() {
   } = useBatchingSession();
 
   useEffect(() => {
-    return () => setBatchingFocusMode(false);
-  }, [setBatchingFocusMode]);
+    return () => {
+      /* Preserve sprint in localStorage on unmount — only clear on explicit exit */
+    };
+  }, []);
 
-  const handleExitSprint = useCallback(() => {
+  const handleExitSprint = useCallback(async () => {
     finishSprintTimer(
       sprintStartedAt ? Date.now() - sprintStartedAt : 0
     );
-    exitToDashboard();
+    await exitToDashboard();
   }, [finishSprintTimer, sprintStartedAt, exitToDashboard]);
 
-  const handleRecapExit = useCallback(() => {
-    exitToDashboard();
+  const handleRecapExit = useCallback(async () => {
+    await exitToDashboard();
   }, [exitToDashboard]);
+
+  const handleEndSprintEarly = useCallback(async () => {
+    skipToEndOfBatch();
+  }, [skipToEndOfBatch]);
 
   const isImmersive = phase === "execution";
 
   return (
     <div className="relative min-h-[calc(100vh-8rem)]">
+      <BatchVictoryBurst active={celebratingComplete} />
+
       <AnimatePresence>
         {phase === "clustering" && (
           <motion.div
@@ -70,6 +79,7 @@ export function BatchingWorkstation() {
           >
             <Link
               href="/productivity"
+              onClick={() => clearActiveBatchSprint()}
               className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-charcoal/50 transition hover:text-charcoal"
             >
               <ArrowLeft size={16} />
@@ -126,9 +136,10 @@ export function BatchingWorkstation() {
             total={totalInSprint}
             sprintStartedAt={sprintStartedAt}
             cardExitMode={cardExitMode}
+            celebratingComplete={celebratingComplete}
             onComplete={completeCurrentTask}
             onDefer={deferCurrentTask}
-            onSkipToEnd={skipToEndOfBatch}
+            onSkipToEnd={handleEndSprintEarly}
             onSessionTimerEnd={finishSprintTimer}
             onExit={handleExitSprint}
           />

@@ -94,6 +94,55 @@ const DeepWorkDailySchema = new mongoose.Schema(
   { _id: false }
 );
 
+const ActiveBatchSprintSchema = new mongoose.Schema(
+  {
+    category: { type: String, required: true, maxlength: 64 },
+    phase: { type: String, enum: ["execution", "recap"], required: true },
+    startedAt: { type: Number, required: true },
+    queue: { type: [String], default: [] },
+    completedIds: { type: [String], default: [] },
+    skippedCount: { type: Number, default: 0, min: 0 },
+    initialQueueLength: { type: Number, default: 0, min: 0 },
+    finalElapsedMs: { type: Number, default: 0, min: 0 },
+    updatedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
+const ActivePomodoroTimerSchema = new mongoose.Schema(
+  {
+    sessionId: { type: String, required: true },
+    taskId: { type: String, default: null },
+    phase: {
+      type: String,
+      enum: ["work", "shortBreak", "longBreak"],
+      required: true,
+    },
+    type: {
+      type: String,
+      enum: ["focus", "short_break", "long_break"],
+      required: true,
+    },
+    secondsLeft: { type: Number, required: true, min: 0 },
+    isRunning: { type: Boolean, default: false },
+    workMinutes: { type: Number, default: 25, min: 1, max: 180 },
+    cycle: { type: Number, default: 0, min: 0 },
+    startedAt: { type: String, required: true },
+    timerStartedAt: { type: Number, default: null },
+    updatedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
+const ActiveTimeBlockRunwaySchema = new mongoose.Schema(
+  {
+    date: { type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ },
+    hour: { type: Number, required: true, min: 0, max: 23 },
+    updatedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const UserDashboardSchema = new mongoose.Schema(
   {
     userId: {
@@ -121,6 +170,18 @@ const UserDashboardSchema = new mongoose.Schema(
     },
     deepWorkDaily: {
       type: DeepWorkDailySchema,
+      default: undefined,
+    },
+    activeBatchSprint: {
+      type: ActiveBatchSprintSchema,
+      default: undefined,
+    },
+    activePomodoroTimer: {
+      type: ActivePomodoroTimerSchema,
+      default: undefined,
+    },
+    activeTimeBlockRunway: {
+      type: ActiveTimeBlockRunwaySchema,
       default: undefined,
     },
   },

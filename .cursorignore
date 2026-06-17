@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.yarn/
+
+# Production Build Outputs
+.next/
+dist/
+build/
+out/
+
+# Environment Variables and Secrets
+.env
+.env.*
+*.pem
+*.key
+
+# Version Control & IDE Settings
+.git/
+.idea/
+.vscode/
+
+# Media, Assets, and Logs
+*.mp4
+*.mp3
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.log
+npm-debug.log*
+
+# Heavy Lockfiles (Optional, but saves massive context tokens)
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
