@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { GripVertical, Play, X } from "lucide-react";
 import { useTaskStore } from "@/store/useTaskStore";
+import { useLongPressDrag } from "@/hooks/useLongPressDrag";
 import { MicroFocusSprint } from "./MicroFocusSprint";
 import { SprintVictoryEffects } from "./SprintVictoryEffects";
 import { DelegateSlideMenu } from "./DelegateSlideMenu";
@@ -78,21 +79,37 @@ export function EisenhowerTaskCard({
   };
 
   const commitDrag = useCallback(
-    (clientX, clientY) => {
-      onDragStart(task.id, task.title, clientX, clientY, String(zone));
+    (taskId, _taskTitle, clientX, clientY) => {
+      onDragStart(taskId, task.title, clientX, clientY, String(zone));
     },
-    [onDragStart, task.id, task.title, zone]
+    [onDragStart, task.title, zone]
   );
+
+  /* Long-press hook for mobile touch — 300 ms hold activates drag with
+     gold halo + scale lift. For mouse (pointerType === 'mouse') the
+     existing pixel-threshold logic below fires instead. */
+  const { isHolding, handlePointerDown: lpHandlePointerDown } = useLongPressDrag({
+    onDragStart: commitDrag,
+    holdMs: 300,
+    moveThreshold: DRAG_THRESHOLD_PX,
+  });
 
   const handlePointerDown = useCallback(
     (e) => {
       if (sprintLocked) return;
-      if (e.button !== 0) return;
+      if (e.button !== 0 && e.pointerType === "mouse") return;
       if (e.target.closest("[data-eisenhower-no-drag]")) return;
 
       e.preventDefault();
       e.stopPropagation();
 
+      /* Touch / stylus → long-press activation */
+      if (e.pointerType !== "mouse") {
+        lpHandlePointerDown(e, task.id, task.title);
+        return;
+      }
+
+      /* Mouse → immediate threshold-based drag (existing behaviour) */
       const startX = e.clientX;
       const startY = e.clientY;
       const pointerId = e.pointerId;
@@ -116,7 +133,7 @@ export function EisenhowerTaskCard({
         const dy = ev.clientY - dragPendingRef.current.y;
         if (Math.hypot(dx, dy) >= DRAG_THRESHOLD_PX) {
           cleanup();
-          commitDrag(ev.clientX, ev.clientY);
+          onDragStart(task.id, task.title, ev.clientX, ev.clientY, String(zone));
         }
       };
 
@@ -128,7 +145,7 @@ export function EisenhowerTaskCard({
       window.addEventListener("pointerup", onUp);
       window.addEventListener("pointercancel", onUp);
     },
-    [commitDrag, sprintLocked]
+    [lpHandlePointerDown, onDragStart, task.id, task.title, zone, sprintLocked]
   );
 
   const closeSprint = useCallback(() => {
@@ -187,15 +204,22 @@ export function EisenhowerTaskCard({
 
       <motion.div
         initial={false}
-        animate={{
-          opacity: isDragging ? 0 : purging ? 0 : isQ4 && hovered ? 0.4 : 1,
-          scale: purging ? 0.85 : 1,
-        }}
-        transition={CARD_LAYOUT_TWEEN}
-        className="relative"
-        style={{ zIndex: isSprintActive || victoryExit ? 50 : 1 }}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
+          animate={{
+            opacity: isDragging ? 0 : purging ? 0 : isQ4 && hovered ? 0.4 : 1,
+            scale: purging ? 0.85 : isHolding ? 1.03 : 1,
+          }}
+          transition={CARD_LAYOUT_TWEEN}
+          className="relative"
+          style={{
+            zIndex: isSprintActive || victoryExit ? 50 : isHolding ? 40 : 1,
+            /* Gold ambient shadow halo on long-press hold */
+            boxShadow: isHolding
+              ? "0 0 0 2px rgba(245,217,126,0.55), 0 8px 32px rgba(245,165,0,0.35), 0 0 56px rgba(245,217,126,0.18)"
+              : undefined,
+            transition: isHolding ? "box-shadow 200ms ease" : undefined,
+          }}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
       >
         <motion.div
           layout

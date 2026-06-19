@@ -3,16 +3,19 @@
 import { motion } from "framer-motion";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useTasks } from "@/hooks/queries/useTasksQuery";
+import { useDashboard } from "@/hooks/queries/useDashboardQuery";
 import { calculateFocusScore } from "@/lib/utils";
 import { CheckCircle2, Clock, Target } from "lucide-react";
 
 export function WelcomeHeader() {
   const { tasks } = useTasks();
+  const { sessionFocusScore } = useDashboard();
   const userName = useTaskStore((s) => s.userName);
 
   const completed = tasks.filter((t) => t.status === "Completed").length;
   const pending = tasks.filter((t) => t.status !== "Completed").length;
-  const focusScore = calculateFocusScore(tasks);
+  const clientFocusScore = calculateFocusScore(tasks);
+  const focusScore = sessionFocusScore ?? clientFocusScore;
   const total = tasks.length || 1;
 
   const metrics = [

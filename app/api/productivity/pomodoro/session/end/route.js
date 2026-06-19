@@ -43,7 +43,7 @@ export async function POST(request) {
 
     await connectDB();
 
-    const { taskId, type, duration, status } = parsed.data;
+    const { taskId, type, duration, status, wellness } = parsed.data;
     const durationMs = Math.round(duration * MS_PER_MINUTE);
     const now = new Date();
 
@@ -53,6 +53,7 @@ export async function POST(request) {
       type,
       duration,
       status,
+      ...(wellness ? { wellness } : {}),
       createdAt: now,
     });
 

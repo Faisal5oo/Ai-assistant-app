@@ -20,6 +20,7 @@ import {
 import { KANBAN_SPRING, KANBAN_STATUSES } from "@/lib/kanban";
 
 import { useKanbanDrag } from "@/hooks/useKanbanDrag";
+import { useViewportEdgeScroll } from "@/hooks/useViewportEdgeScroll";
 
 import { KanbanColumn } from "./KanbanColumn";
 
@@ -140,6 +141,8 @@ export function KanbanBoard() {
       onDrop: handleDrop,
       onHoverStatus: setHoverStatus,
     });
+
+  useViewportEdgeScroll({ isDragging });
 
   const handleDragStart = useCallback(
     (taskId, title, x, y, sourceStatus) => {
@@ -271,7 +274,8 @@ export function KanbanBoard() {
 
 
 
-      <div className="kanban-board-grid grid gap-5 md:grid-cols-3">
+      {/* Mobile: single-column full-width stacked; md+: 3-column grid */}
+      <div className="kanban-board-grid grid gap-5 grid-cols-1 md:grid-cols-3">
           {KANBAN_STATUSES.map((status) => (
             <KanbanColumn
               key={status}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   GripVertical,
   Hourglass,
@@ -40,6 +40,7 @@ const CATEGORY_STYLES = {
  * @param {boolean} [props.isFocusRunning]
  * @param {boolean} [props.isFocusPaused]
  * @param {boolean} [props.isInQueue]
+ * @param {boolean} [props.isHighlighted]
  * @param {() => void} [props.onActivate]
  * @param {(taskId: string, title: string, x: number, y: number, sourceStatus: string) => void} props.onDragStart
  * @param {() => void} props.onEdit
@@ -52,6 +53,7 @@ export function TaskCard({
   isFocusRunning = false,
   isFocusPaused = false,
   isInQueue = false,
+  isHighlighted = false,
   onActivate,
   onDragStart,
   onEdit,
@@ -133,12 +135,14 @@ export function TaskCard({
           layout
           drag={false}
           onPointerDown={handlePointerDown}
-          className={`glass-card group relative w-full cursor-grab overflow-visible border-l-4 p-4 active:cursor-grabbing [touch-action:none] [-webkit-user-drag:none] ${
+          className={`glass-card group relative w-full cursor-grab overflow-hidden border-l-4 p-4 active:cursor-grabbing [touch-action:none] [-webkit-user-drag:none] ${
             isDragging ? "invisible" : ""
           } ${CATEGORY_STYLES[task.category]} ${
-            isFocusRunning
-              ? "ring-2 ring-gold/55 shadow-[0_0_24px_rgba(250,204,21,0.2)]"
-              : ""
+            isHighlighted
+              ? "ring-2 ring-gold/70 shadow-[0_0_32px_rgba(250,204,21,0.30)]"
+              : isFocusRunning
+                ? "ring-2 ring-gold/55 shadow-[0_0_24px_rgba(250,204,21,0.2)]"
+                : ""
           }`}
           style={{
             WebkitTouchCallout: "none",
@@ -146,6 +150,20 @@ export function TaskCard({
           }}
           transition={CARD_LAYOUT_TWEEN}
         >
+          {/* Slow gold shimmer overlay — fades in, pulses twice, then out */}
+          <AnimatePresence>
+            {isHighlighted && (
+              <motion.div
+                key="highlight-shimmer"
+                aria-hidden
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [0, 0.9, 0.45, 0.75, 0.25, 0] }}
+                exit={{ opacity: 0, transition: { duration: 0.5 } }}
+                transition={{ duration: 4.5, ease: "easeInOut" }}
+                className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-br from-gold/30 via-amber-200/20 to-transparent"
+              />
+            )}
+          </AnimatePresence>
           <div className="mb-3 flex items-start gap-2">
             <div
               className="mt-0.5 shrink-0 text-slate-500/60 transition-colors duration-200 group-hover:text-slate-800"

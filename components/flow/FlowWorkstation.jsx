@@ -27,6 +27,7 @@ export function FlowWorkstation() {
     completeFlowSession,
     finishRecovery,
     exitAfterRecovery,
+    abandonFlow,
     parkDistraction,
     removeParkedThought,
   } = useFlowSession();
@@ -99,7 +100,12 @@ export function FlowWorkstation() {
 
         {phase === "active" && session && (
           <motion.div key="void" layout transition={FLOW_LAYOUT_TRANSITION}>
-            <FlowVoidCanvas session={session} onComplete={handleTimerComplete} />
+            <FlowVoidCanvas
+              session={session}
+              tasks={tasks}
+              onComplete={handleTimerComplete}
+              onAbandon={abandonFlow}
+            />
             <MindDumpSandbox
               items={parkedThoughts}
               onPark={parkDistraction}

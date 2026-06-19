@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { fetchActiveWorkspace } from "@/lib/workspaceSync";
 
 /**
- * @typedef {'deep-work' | 'pomodoro' | 'batching' | 'time-blocking'} WorkspaceTechnique
+ * @typedef {'deep-work' | 'pomodoro' | 'batching' | 'time-blocking' | 'flow'} WorkspaceTechnique
  */
 
 /**
@@ -13,6 +13,7 @@ import { fetchActiveWorkspace } from "@/lib/workspaceSync";
  * @property {(workspace: import('@/lib/workspaceSync').ActiveWorkspace) => void | Promise<void>} [onPomodoro]
  * @property {(workspace: import('@/lib/workspaceSync').ActiveWorkspace) => void | Promise<void>} [onBatching]
  * @property {(workspace: import('@/lib/workspaceSync').ActiveWorkspace) => void | Promise<void>} [onTimeBlocking]
+ * @property {(workspace: import('@/lib/workspaceSync').ActiveWorkspace) => void | Promise<void>} [onFlow]
  */
 
 /**
@@ -51,6 +52,9 @@ export function useWorkspaceMountSync(technique, handlers) {
             break;
           case "time-blocking":
             await h.onTimeBlocking?.(workspace);
+            break;
+          case "flow":
+            await h.onFlow?.(workspace);
             break;
           default:
             break;

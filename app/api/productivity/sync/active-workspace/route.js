@@ -59,6 +59,7 @@ export async function GET(request) {
         activeBatchSprint: clientDashboard.activeBatchSprint ?? null,
         activePomodoroTimer: clientDashboard.activePomodoroTimer ?? null,
         activeTimeBlockRunway: clientDashboard.activeTimeBlockRunway ?? null,
+        activeFlowSession: clientDashboard.activeFlowSession ?? null,
         activeTimeBlock,
       },
     });

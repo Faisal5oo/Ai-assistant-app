@@ -7,6 +7,8 @@ import { useTasks } from "@/hooks/queries/useTasksQuery";
 import { useActivateFocusTask } from "@/hooks/useActivateFocusTask";
 import { useTimerTick } from "@/hooks/useTimerTick";
 import { formatMsToTimer } from "@/lib/utils";
+import { persistFocusSession } from "@/lib/focusSessionSync";
+import { checkpointFocusSessionRemote } from "@/lib/workspaceSync";
 
 const RING_SIZE = 160;
 const STROKE = 10;
@@ -55,6 +57,8 @@ function TimerProgressRing() {
   );
 }
 
+const GENERAL_FOCUS_TASK_ID = "__general_focus__";
+
 export function TimeTracker() {
   const taskId = useTaskStore((s) => s.activeTimer.taskId);
   const isRunning = useTaskStore((s) => s.activeTimer.isRunning);
@@ -65,6 +69,28 @@ export function TimeTracker() {
   const stopTimer = useTaskStore((s) => s.stopTimer);
 
   const activeTask = tasks.find((t) => t.id === taskId);
+  const isGeneralFocus = taskId === GENERAL_FOCUS_TASK_ID;
+
+  const startGeneralFocusSession = () => {
+    const timer = {
+      taskId: GENERAL_FOCUS_TASK_ID,
+      isRunning: true,
+      startedAt: Date.now(),
+      elapsedMs: 0,
+      mode: "work",
+    };
+    useTaskStore.setState({ activeTimer: timer, activeTechnique: null });
+    persistFocusSession(timer, null);
+    checkpointFocusSessionRemote({
+      taskId: GENERAL_FOCUS_TASK_ID,
+      isRunning: true,
+      startedAt: timer.startedAt,
+      elapsedMs: 0,
+      mode: "work",
+      activeTechnique: null,
+      updatedAt: Date.now(),
+    });
+  };
 
   const handlePlay = () => {
     if (taskId) {
@@ -72,7 +98,12 @@ export function TimeTracker() {
       else resumeTimer();
       return;
     }
-    playTopFocus();
+    const hasTasks = tasks.length > 0;
+    if (hasTasks) {
+      playTopFocus();
+    } else {
+      startGeneralFocusSession();
+    }
   };
 
   return (
@@ -86,15 +117,15 @@ export function TimeTracker() {
 
       <TimerProgressRing />
 
-      {activeTask && (
+      {(activeTask || isGeneralFocus) && (
         <motion.p
-          key={activeTask.id}
+          key={activeTask?.id ?? "general"}
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25, ease: "easeOut" }}
           className="mt-3 max-w-full truncate text-center text-sm font-medium"
         >
-          {activeTask.title}
+          {activeTask ? activeTask.title : "General Focus Session"}
         </motion.p>
       )}
 

@@ -9,7 +9,7 @@ import { formatMsToHoursMinutes, msToHours } from "@/lib/utils";
 const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 
 export function WeeklyProgressChart() {
-  const { dailyLogs } = useDashboard();
+  const { dailyLogs, isFetching } = useDashboard();
   const [hovered, setHovered] = useState(null);
 
   const { timeline, totalMs } = useMemo(
@@ -36,10 +36,16 @@ export function WeeklyProgressChart() {
         <div>
           <p className="text-sm font-medium text-charcoal/60">Progress</p>
           <p className="font-display text-xl font-semibold">
-            {weekHours} h{" "}
-            <span className="text-base font-normal text-charcoal/50">
-              Work Time this week
-            </span>
+            {isFetching ? (
+              <span className="inline-block h-6 w-20 animate-pulse rounded-lg bg-charcoal/10" />
+            ) : (
+              <>
+                {weekHours} h{" "}
+                <span className="text-base font-normal text-charcoal/50">
+                  Work Time this week
+                </span>
+              </>
+            )}
           </p>
         </div>
       </div>

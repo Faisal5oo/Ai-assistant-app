@@ -55,6 +55,7 @@ export async function POST(request) {
       completedEarly,
       minutesSaved,
       completeTask,
+      wellness,
     } = parsed.data;
 
     const durationMs = Math.round(actualDurationMinutes * MS_PER_MINUTE);
@@ -71,6 +72,7 @@ export async function POST(request) {
       ...(abandonReason ? { abandonReason } : {}),
       completedEarly: Boolean(completedEarly),
       minutesSaved: minutesSaved ?? 0,
+      ...(wellness ? { wellness } : {}),
       createdAt: now,
     });
 

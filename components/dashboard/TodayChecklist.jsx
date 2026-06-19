@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef, useEffect } from "react";
 import { LayoutGroup, motion, AnimatePresence } from "framer-motion";
 import {
   Video,
@@ -15,6 +15,7 @@ import {
 import { FocusQueueBadge } from "@/components/tasks/FocusQueueBadge";
 import { useActivateFocusTask } from "@/hooks/useActivateFocusTask";
 import { useTasks } from "@/hooks/queries/useTasksQuery";
+import { velocityToast } from "@/lib/toast";
 import {
   useToggleTaskCompleteMutation,
   useReorderTasksMutation,
@@ -110,6 +111,8 @@ export function OnboardingProgress() {
  * @param {boolean} props.isActiveTimeBlock
  * @param {boolean} props.isRunwayFocusReady
  * @param {boolean} props.isRunwayPrimary
+ * @param {boolean} [props.isHighlighted]
+ * @param {object} [props.layoutTransition]
  * @param {number} [props.slotDurationMinutes]
  * @param {(taskId: string, title: string, x: number, y: number) => void} props.onDragStart
  * @param {(task: import('@/types/interfaces').Task) => void} props.onToggle
@@ -127,6 +130,8 @@ function TodayTaskRow({
   isActiveTimeBlock,
   isRunwayFocusReady,
   isRunwayPrimary,
+  isHighlighted,
+  layoutTransition,
   slotDurationMinutes,
   onDragStart,
   onToggle,
@@ -196,15 +201,23 @@ function TodayTaskRow({
   return (
     <motion.li
       layout
+      layoutId={task.id}
       data-kanban-task-id={task.id}
       initial={{ opacity: 0, y: 10 }}
       animate={{
         opacity: isDragging ? 0.35 : 1,
         y: 0,
-        scale: isTopFocus || (isRunwayFocusReady && isRunwayPrimary) ? 1.02 : 1,
+        scale:
+          isHighlighted ||
+          isTopFocus ||
+          (isRunwayFocusReady && isRunwayPrimary)
+            ? 1.02
+            : 1,
       }}
       exit={{ opacity: 0, x: -12, transition: { duration: 0.2 } }}
-      transition={{ ...KANBAN_MORPH_SPRING, delay: index * 0.03 }}
+      transition={
+        layoutTransition ?? { ...KANBAN_MORPH_SPRING, delay: index * 0.03 }
+      }
       onPointerDown={handlePointerDown}
       className={`group relative list-none overflow-visible [touch-action:none] ${
         isDragging ? "invisible" : ""
@@ -216,16 +229,29 @@ function TodayTaskRow({
         className={`relative flex items-center gap-3 overflow-visible rounded-2xl p-2 ${
           done
             ? "bg-white/[0.03]"
-            : isTopFocus
-              ? "ring-2 ring-gold/55 shadow-[0_0_24px_rgba(250,204,21,0.18)]"
-              : isRunwayFocusReady && isRunwayPrimary
-                ? "ring-2 ring-gold/50 shadow-[0_0_28px_rgba(250,204,21,0.22)]"
-                : isActiveTimeBlock
-                  ? "ring-1 ring-gold/40 bg-gradient-to-r from-gold/15 via-amber-400/10 to-transparent shadow-[0_0_20px_rgba(250,204,21,0.1)]"
-                  : "bg-white/5"
+            : isHighlighted
+              ? "ring-2 ring-gold/70 bg-gradient-to-r from-gold/20 via-amber-300/15 to-transparent shadow-[0_0_32px_rgba(250,204,21,0.30)]"
+              : isTopFocus
+                ? "ring-2 ring-gold/55 shadow-[0_0_24px_rgba(250,204,21,0.18)]"
+                : isRunwayFocusReady && isRunwayPrimary
+                  ? "ring-2 ring-gold/50 shadow-[0_0_28px_rgba(250,204,21,0.22)]"
+                  : isActiveTimeBlock
+                    ? "ring-1 ring-gold/40 bg-gradient-to-r from-gold/15 via-amber-400/10 to-transparent shadow-[0_0_20px_rgba(250,204,21,0.1)]"
+                    : "bg-white/5"
         }`}
       >
         <AnimatePresence mode="sync" initial={false}>
+          {isHighlighted && !done && (
+            <motion.div
+              key="highlight-glow"
+              aria-hidden
+              initial={{ opacity: 0 }}
+              animate={{ opacity: [0, 0.85, 0.5, 0.75, 0.3, 0] }}
+              exit={{ opacity: 0, transition: { duration: 0.6 } }}
+              transition={{ duration: 4.5, ease: "easeInOut" }}
+              className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl bg-gradient-to-r from-gold/35 via-amber-200/25 to-transparent"
+            />
+          )}
           {isRunwayFocusReady && isRunwayPrimary && !isFocusRunning && (
             <motion.div
               key="runway-ready"
@@ -301,7 +327,7 @@ function TodayTaskRow({
         <div className="relative z-10 min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p
-              className={`min-w-0 flex-1 truncate text-sm font-medium transition-all duration-300 ${
+              className={`min-w-0 flex-1 break-words text-sm font-medium leading-snug transition-all duration-300 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden ${
                 done ? "text-white/40 line-through decoration-white/25" : ""
               } ${isTopFocus || isActiveTimeBlock || (isRunwayFocusReady && isRunwayPrimary) ? "text-gold" : ""}`}
             >
@@ -392,13 +418,44 @@ export function TodayChecklist() {
   const reorderTasks = useReorderTasksMutation();
   const activeTaskId = useTaskStore((s) => s.activeTimer.taskId);
   const isTimerRunning = useTaskStore((s) => s.activeTimer.isRunning);
+  const highlightedTaskId = useTaskStore((s) => s.highlightedTaskId);
+  const highlightSorting = useTaskStore((s) => s.highlightSorting);
 
   const { activate } = useActivateFocusTask();
-  const displayTasks = useMemo(
-    () => getTodayDisplayTasks(tasks, { currentHour }),
-    [tasks, currentHour]
-  );
+
+  // Pin the highlighted task to the top of the display list when present
+  const displayTasks = useMemo(() => {
+    const base = getTodayDisplayTasks(tasks, { currentHour });
+    if (!highlightedTaskId) return base;
+    const idx = base.findIndex((t) => t.id === highlightedTaskId);
+    if (idx <= 0) return base;
+    const reordered = [...base];
+    const [pinned] = reordered.splice(idx, 1);
+    reordered.unshift(pinned);
+    return reordered;
+  }, [tasks, currentHour, highlightedTaskId]);
+
   const completedCount = tasks.filter((t) => t.status === "Completed").length;
+
+  // Slow cinematic spring for the sort-to-top move
+  const HIGHLIGHT_SORT_SPRING = {
+    type: "spring",
+    stiffness: 55,
+    damping: 14,
+    mass: 1.1,
+  };
+
+  // Auto-scroll the highlighted card into view once it reaches the top
+  const listRef = useRef(null);
+  useEffect(() => {
+    if (!highlightedTaskId || !listRef.current) return;
+    const el = listRef.current.querySelector(
+      `[data-kanban-task-id="${highlightedTaskId}"]`
+    );
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [highlightedTaskId]);
 
   const syncStatusOrder = useCallback(
     (orderedTasks, status) => {
@@ -436,14 +493,23 @@ export function TodayChecklist() {
     (task) => {
       const nextStatus = task.status === "Completed" ? "Todo" : "Completed";
       toggleComplete.mutate({ id: task.id, nextStatus });
+
+      if (nextStatus === "Completed") {
+        const totalTasks = tasks.length;
+        const nowDone = tasks.filter((t) => t.status === "Completed").length + 1;
+        const pct = totalTasks > 0 ? Math.round((nowDone / totalTasks) * 100) : 0;
+        if (pct >= 60) {
+          velocityToast.highPerformance({ completionPct: pct });
+        }
+      }
     },
-    [toggleComplete]
+    [toggleComplete, tasks]
   );
 
   return (
     <motion.div
       layout
-      className="glass-card-dark kanban-drop-zone relative flex flex-col overflow-visible p-5 md:min-h-[420px]"
+      className="glass-card-dark kanban-drop-zone relative flex flex-col overflow-visible p-5 md:min-h-[480px]"
     >
       <div className="mb-4 flex items-center justify-between">
         <h3 className="font-display text-lg font-semibold">Today&apos;s Tasks</h3>
@@ -466,6 +532,7 @@ export function TodayChecklist() {
       >
         <LayoutGroup id="today-checklist">
           <motion.ul
+            ref={listRef}
             layout
             data-kanban-list
             className="flex min-h-0 flex-1 flex-col gap-3 overflow-x-visible overflow-y-auto p-2"
@@ -504,6 +571,7 @@ export function TodayChecklist() {
                     !isTimerTask &&
                     !isActiveTimeBlock;
 
+                  const isThisHighlighted = task.id === highlightedTaskId;
                   return (
                     <TodayTaskRow
                       key={task.id}
@@ -517,6 +585,12 @@ export function TodayChecklist() {
                       isActiveTimeBlock={isActiveTimeBlock}
                       isRunwayFocusReady={isRunwayFocusReady}
                       isRunwayPrimary={isRunwayPrimary}
+                      isHighlighted={isThisHighlighted}
+                      layoutTransition={
+                        isThisHighlighted && highlightSorting
+                          ? HIGHLIGHT_SORT_SPRING
+                          : undefined
+                      }
                       slotDurationMinutes={blockMeta?.durationMinutes}
                       onDragStart={handleDragStart}
                       onToggle={handleToggle}

@@ -2,10 +2,14 @@
 
 import { motion } from "framer-motion";
 import { useBatchDrag } from "@/hooks/useBatchDrag";
+import { useViewportEdgeScroll } from "@/hooks/useViewportEdgeScroll";
 import { BatchBucketCard } from "./BatchBucketCard";
 import { QuickSortPanel } from "./QuickSortPanel";
 import { DragGhost } from "./DragGhost";
 import { CreateBatchCard } from "./CreateBatchCard";
+import { DraggableTaskChip } from "./DraggableTaskChip";
+import { MobileDockSheet } from "@/components/ui/MobileDockSheet";
+import { POOL_ZONE_ID } from "@/lib/batchingConstants";
 
 /**
  * @param {Object} props
@@ -35,15 +39,27 @@ export function BatchManager({
       onDrop: onMoveTask,
     });
 
+  useViewportEdgeScroll({ isDragging });
+
   return (
     <>
+      {/*
+        Mobile layout:
+          - Buckets stack as single-column full-width rows
+          - pb-[34vh] keeps the last bucket above the dock sheet
+          - QuickSortPanel (desktop fixed bottom) is hidden on mobile;
+            MobileDockSheet takes its place
+        Desktop layout:
+          - sm:grid-cols-2 bucket grid unchanged
+          - QuickSortPanel renders as before
+      */}
       <motion.div
         layout
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0, scale: 0.96 }}
         transition={{ duration: 0.5 }}
-        className="pb-52"
+        className="pb-[34vh] md:pb-52"
       >
         <div className="mb-10 max-w-2xl">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-dark">
@@ -77,11 +93,32 @@ export function BatchManager({
         </div>
       </motion.div>
 
-      <QuickSortPanel
-        unbatched={unbatched}
-        draggingTaskId={draggingTaskId}
-        onDragStart={startDrag}
-      />
+      {/* Desktop: existing fixed quick-sort panel (hidden below md) */}
+      <div className="hidden md:block">
+        <QuickSortPanel
+          unbatched={unbatched}
+          draggingTaskId={draggingTaskId}
+          onDragStart={startDrag}
+        />
+      </div>
+
+      {/* Mobile: dock sheet replaces the quick-sort panel */}
+      <MobileDockSheet
+        title="Quick sort pool"
+        count={unbatched.length}
+        dropZoneAttr={{ "data-batch-drop": "pool" }}
+        isHoverTarget={false}
+        emptyLabel="All tasks are batched. Sprint when ready."
+      >
+        {unbatched.map((task) => (
+          <DraggableTaskChip
+            key={task.id}
+            task={task}
+            isDragging={draggingTaskId === task.id}
+            onDragStart={startDrag}
+          />
+        ))}
+      </MobileDockSheet>
 
       {isDragging && session.taskTitle && (
         <DragGhost

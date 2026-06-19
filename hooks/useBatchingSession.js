@@ -7,6 +7,7 @@ import {
   endBatchSprintImperative,
   updateBatchCategoryImperative,
 } from "@/lib/imperative-mutations";
+import { velocityToast } from "@/lib/toast";
 import { useWorkspaceMountSync } from "@/hooks/useWorkspaceMountSync";
 import { readBatchSprintFromStorage } from "@/lib/batchSprintStorage";
 import {
@@ -247,6 +248,12 @@ export function useBatchingSession() {
     setCelebratingComplete(false);
 
     if (rest.length === 0) {
+      const total = initialQueueLength || nextCompleted.length;
+      const pct = total > 0 ? Math.round((nextCompleted.length / total) * 100) : 100;
+      if (pct >= 60) {
+        velocityToast.highPerformance({ completionPct: pct });
+      }
+      velocityToast.sprintComplete({ completed: nextCompleted.length, total });
       setActiveBatchSprint({
         ...activeBatchSprint,
         queue: [],
@@ -300,6 +307,7 @@ export function useBatchingSession() {
       skippedCount: skippedCount + remaining,
       phase: "recap",
     });
+    velocityToast.frictionWarning();
   }, [activeBatchSprint, queue, skippedCount, setActiveBatchSprint]);
 
   const finishSprintTimer = useCallback(

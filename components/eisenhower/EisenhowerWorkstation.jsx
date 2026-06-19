@@ -7,9 +7,13 @@ import { ArrowLeft, Grid2x2 } from "lucide-react";
 import { EISENHOWER_QUADRANTS, EISENHOWER_SPRING } from "@/lib/eisenhower";
 import { useEisenhowerDrag } from "@/hooks/useEisenhowerDrag";
 import { useEisenhowerWorkspace } from "@/hooks/useEisenhowerWorkspace";
+import { useViewportEdgeScroll } from "@/hooks/useViewportEdgeScroll";
 import { EisenhowerDragGhost } from "./EisenhowerDragGhost";
 import { UnallocatedInbox } from "./UnallocatedInbox";
 import { EisenhowerQuadrantPanel } from "./EisenhowerQuadrantPanel";
+import { EisenhowerTaskCard } from "./EisenhowerTaskCard";
+import { MobileDockSheet } from "@/components/ui/MobileDockSheet";
+import { EISENHOWER_INBOX_ZONE } from "@/lib/eisenhower";
 
 export function EisenhowerWorkstation() {
   const [hoverZone, setHoverZone] = useState(/** @type {string | null} */ (null));
@@ -61,6 +65,8 @@ export function EisenhowerWorkstation() {
       onHoverZone: setHoverZone,
     });
 
+  useViewportEdgeScroll({ isDragging });
+
   const handleDragStart = useCallback(
     (taskId, title, x, y, sourceZone) => {
       startDrag(taskId, title, x, y, sourceZone);
@@ -103,15 +109,27 @@ export function EisenhowerWorkstation() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-5 lg:flex-row">
-        <UnallocatedInbox
-          tasks={unallocated}
-          draggingTaskId={draggingTaskId}
-          isHoverTarget={hoverZone === "inbox"}
-          onDragStart={handleDragStart}
-        />
+      {/*
+        Layout strategy:
+          - md+  : side-by-side (UnallocatedInbox left | 2×2 grid right)  — unchanged
+          - < md : full-width stacked quadrant grid, UnallocatedInbox
+                   promoted into the fixed MobileDockSheet at the bottom.
+                   pb-[34vh] gives space so the last quadrant is not hidden
+                   behind the dock.
+      */}
+      <div className="flex flex-col gap-5 pb-[34vh] md:pb-0 lg:flex-row">
+        {/* Desktop inbox panel — hidden on mobile (dock takes over) */}
+        <div className="hidden md:block">
+          <UnallocatedInbox
+            tasks={unallocated}
+            draggingTaskId={draggingTaskId}
+            isHoverTarget={hoverZone === "inbox"}
+            onDragStart={handleDragStart}
+          />
+        </div>
 
-        <div className="grid min-w-0 flex-1 grid-cols-1 items-start gap-4 md:grid-cols-2">
+        {/* Quadrant grid: 1-col on mobile, 2-col on md+ */}
+        <div className="grid min-w-0 flex-1 grid-cols-1 items-start gap-4 sm:grid-cols-2">
           {EISENHOWER_QUADRANTS.map((q) => (
             <EisenhowerQuadrantPanel
               key={q}
@@ -141,6 +159,25 @@ export function EisenhowerWorkstation() {
           registerMover={registerGhostMover}
         />
       )}
+
+      {/* Mobile dock — fixed bottom source pool (hidden on md+) */}
+      <MobileDockSheet
+        title="Unallocated Inbox"
+        count={unallocated.length}
+        dropZoneAttr={{ "data-eisenhower-zone": EISENHOWER_INBOX_ZONE }}
+        isHoverTarget={hoverZone === EISENHOWER_INBOX_ZONE}
+        emptyLabel="All tasks categorized"
+      >
+        {unallocated.map((task) => (
+          <EisenhowerTaskCard
+            key={task.id}
+            task={task}
+            zone={EISENHOWER_INBOX_ZONE}
+            isDragging={draggingTaskId === task.id}
+            onDragStart={handleDragStart}
+          />
+        ))}
+      </MobileDockSheet>
     </motion.div>
   );
 }

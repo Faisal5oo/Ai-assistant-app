@@ -120,6 +120,8 @@ export function useEisenhowerDrag({ onDrop, onHoverZone }) {
       clearHighlight();
       setHoverZone(null);
       document.body.classList.remove("eisenhower-drag-active");
+      document.body.style.touchAction = "";
+      document.documentElement.style.overscrollBehavior = "";
       ghostMoveRef.current = null;
 
       setSession({
@@ -138,6 +140,9 @@ export function useEisenhowerDrag({ onDrop, onHoverZone }) {
       lastPointerRef.current = { x: clientX, y: clientY };
       smoothedRotateRef.current = 0;
       document.body.classList.add("eisenhower-drag-active");
+      /* Prevent native touch scroll while dragging on mobile */
+      document.body.style.touchAction = "none";
+      document.documentElement.style.overscrollBehavior = "none";
       setSession({
         taskId,
         taskTitle,
@@ -192,6 +197,8 @@ export function useEisenhowerDrag({ onDrop, onHoverZone }) {
       clearHighlight();
       setHoverZone(null);
       document.body.classList.remove("eisenhower-drag-active");
+      document.body.style.touchAction = "";
+      document.documentElement.style.overscrollBehavior = "";
     };
   }, [session.taskId, endDrag, applyHighlight, clearHighlight, setHoverZone]);
 
@@ -205,6 +212,8 @@ export function useEisenhowerDrag({ onDrop, onHoverZone }) {
       clearHighlight();
       setHoverZone(null);
       document.body.classList.remove("eisenhower-drag-active");
+      document.body.style.touchAction = "";
+      document.documentElement.style.overscrollBehavior = "";
       ghostMoveRef.current = null;
       setSession({
         taskId: null,

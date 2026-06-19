@@ -97,6 +97,8 @@ export function useBatchDrag({ onDrop }) {
 
       clearHighlight();
       document.body.classList.remove("batch-drag-active");
+      document.body.style.touchAction = "";
+      document.documentElement.style.overscrollBehavior = "";
       ghostMoveRef.current = null;
 
       setSession({
@@ -111,6 +113,9 @@ export function useBatchDrag({ onDrop }) {
 
   const startDrag = useCallback((taskId, taskTitle, clientX, clientY) => {
     document.body.classList.add("batch-drag-active");
+    /* Prevent native touch scroll while a drag is processing */
+    document.body.style.touchAction = "none";
+    document.documentElement.style.overscrollBehavior = "none";
     setSession({
       taskId,
       taskTitle,
@@ -150,6 +155,8 @@ export function useBatchDrag({ onDrop }) {
       window.removeEventListener("pointercancel", onUp);
       clearHighlight();
       document.body.classList.remove("batch-drag-active");
+      document.body.style.touchAction = "";
+      document.documentElement.style.overscrollBehavior = "";
     };
   }, [session.taskId, endDrag, applyHighlight, clearHighlight]);
 
@@ -162,6 +169,8 @@ export function useBatchDrag({ onDrop }) {
     cancelDrag: () => {
       clearHighlight();
       document.body.classList.remove("batch-drag-active");
+      document.body.style.touchAction = "";
+      document.documentElement.style.overscrollBehavior = "";
       ghostMoveRef.current = null;
       setSession({
         taskId: null,

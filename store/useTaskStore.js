@@ -41,7 +41,15 @@ import {
   clearBatchSprintRemote,
   checkpointTimeBlockRunwayRemote,
   clearTimeBlockRunwayRemote,
+  checkpointFlowSessionRemote,
+  finalizeFlowSessionRemote,
+  clearFlowSessionRemote,
 } from "@/lib/workspaceSync";
+import {
+  writeFlowSessionToStorage,
+  readFlowSessionFromStorage,
+  purgeFlowSessionStorage,
+} from "@/lib/flowStateStorage";
 
 /**
  * @typedef {import('@/types/interfaces').ActiveTimer} ActiveTimer
@@ -77,6 +85,8 @@ export const useTaskStore = create((set, get) => ({
   pomodoroFocusMode: false,
   /** Hour block currently conducting visual takeover (no auto-timer). */
   runwayLiveHour: null,
+  /** @type {import('@/lib/flowStateStorage').PersistedFlowSession | null} */
+  activeFlowSession: null,
 
   setRunwayLiveHour: (hour) => {
     set({ runwayLiveHour: hour });
@@ -295,6 +305,47 @@ export const useTaskStore = create((set, get) => ({
 
   setFlowFocusMode: (active) => set({ flowFocusMode: active }),
 
+  /** @param {import('@/lib/flowStateStorage').PersistedFlowSession} session */
+  igniteFlowSession: (session) => {
+    const withTs = { ...session, updatedAt: Date.now() };
+    set({ activeFlowSession: withTs, flowFocusMode: true });
+    writeFlowSessionToStorage(withTs);
+    checkpointFlowSessionRemote(withTs);
+  },
+
+  /** @param {{ actualDurationMs: number, status: 'completed' | 'abandoned' }} params */
+  finalizeFlowSession: ({ actualDurationMs, status }) => {
+    const session = get().activeFlowSession;
+    set({ activeFlowSession: null, flowFocusMode: false });
+    purgeFlowSessionStorage();
+    if (session) {
+      finalizeFlowSessionRemote({
+        primaryTaskId: session.primaryTaskId,
+        primaryTaskTitle: session.primaryTaskTitle,
+        targetTaskIds: session.targetTaskIds ?? [],
+        runwayQueue: session.runwayQueue ?? [],
+        durationMinutes: session.durationMinutes,
+        actualDurationMs,
+        status,
+        sessionStartedAt: new Date(session.startedAt).toISOString(),
+      });
+    }
+  },
+
+  clearFlowSession: () => {
+    set({ activeFlowSession: null, flowFocusMode: false });
+    purgeFlowSessionStorage();
+    clearFlowSessionRemote();
+  },
+
+  hydrateFlowSession: () => {
+    const stored = readFlowSessionFromStorage();
+    if (stored) {
+      set({ activeFlowSession: stored, flowFocusMode: true });
+    }
+    return stored;
+  },
+
   setPomodoroFocusMode: (active) => set({ pomodoroFocusMode: active }),
 
   recordDeepWorkSession: (taskId, durationMs) => {
@@ -478,4 +529,49 @@ export const useTaskStore = create((set, get) => ({
       userName: "",
       userAvatar: "",
     }),
+
+  // ─── Profile accordion open/collapsed state ──────────────────────────────────
+  /** @type {string | null} */
+  profileAccordionOpenId: "devices",
+
+  /** @param {string | null} id */
+  setProfileAccordionOpenId: (id) => set({ profileAccordionOpenId: id }),
+
+  // ─── Highlighted task (calendar click → tasks page pin + slow glow) ─────────
+  /** @type {string | null} */
+  highlightedTaskId: null,
+
+  /**
+   * True during the first ~800 ms after a highlight is set —
+   * TodayChecklist uses this to apply the slow cinematic spring on the
+   * layout reorder, then reverts to the normal spring for subsequent renders.
+   */
+  highlightSorting: false,
+
+  /**
+   * Set the highlighted task. Fires a two-phase timer:
+   *   phase 1 (800 ms) — highlightSorting=true → slow layout spring fires
+   *   phase 2 (4500 ms total) — highlightSorting=false, glow stays alive
+   *   phase 3 — highlight cleared, glow fades out
+   * @param {string | null} id
+   */
+  setHighlightedTaskId: (id) => {
+    set({ highlightedTaskId: id, highlightSorting: !!id });
+    if (id) {
+      // After the slow-sort spring completes, revert spring to normal speed
+      setTimeout(() => {
+        set((s) =>
+          s.highlightedTaskId === id ? { highlightSorting: false } : {}
+        );
+      }, 900);
+      // Auto-clear the whole highlight after glow animation finishes
+      setTimeout(() => {
+        set((s) =>
+          s.highlightedTaskId === id
+            ? { highlightedTaskId: null, highlightSorting: false }
+            : {}
+        );
+      }, 5000);
+    }
+  },
 }));

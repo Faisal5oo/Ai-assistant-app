@@ -1,11 +1,12 @@
 "use client";
 
-import { LayoutGroup, motion } from "framer-motion";
+import { LayoutGroup, motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, Circle, Clock3 } from "lucide-react";
 import { useActivateFocusTask } from "@/hooks/useActivateFocusTask";
 import { useTaskStore } from "@/store/useTaskStore";
 import { COLUMN_META, KANBAN_DROP_SPRING, KANBAN_MORPH_SPRING } from "@/lib/kanban";
 import { TaskCard } from "./TaskCard";
+import { useEffect, useRef, useMemo } from "react";
 
 const ICONS = {
   Circle,
@@ -23,6 +24,14 @@ const ICONS = {
  * @param {(task: import('@/types/interfaces').Task) => void} props.onEdit
  * @param {(taskId: string) => void} props.onDelete
  */
+/** Slow cinematic spring used only for the highlight sort-to-top move */
+const HIGHLIGHT_SORT_SPRING = {
+  type: "spring",
+  stiffness: 55,
+  damping: 14,
+  mass: 1.1,
+};
+
 export function KanbanColumn({
   status,
   tasks,
@@ -36,13 +45,38 @@ export function KanbanColumn({
   const Icon = ICONS[/** @type {keyof typeof ICONS} */ (meta.iconName)] ?? Circle;
   const activeTaskId = useTaskStore((s) => s.activeTimer.taskId);
   const isTimerRunning = useTaskStore((s) => s.activeTimer.isRunning);
+  const highlightedTaskId = useTaskStore((s) => s.highlightedTaskId);
+  const highlightSorting = useTaskStore((s) => s.highlightSorting);
   const { activate } = useActivateFocusTask();
+
+  // Pin the highlighted task to the top of this column's list
+  const orderedTasks = useMemo(() => {
+    if (!highlightedTaskId) return tasks;
+    const idx = tasks.findIndex((t) => t.id === highlightedTaskId);
+    if (idx <= 0) return tasks;
+    const reordered = [...tasks];
+    const [pinned] = reordered.splice(idx, 1);
+    reordered.unshift(pinned);
+    return reordered;
+  }, [tasks, highlightedTaskId]);
+
+  // Scroll the highlighted card into view once it reaches the top
+  const listRef = useRef(null);
+  useEffect(() => {
+    if (!highlightedTaskId || !listRef.current) return;
+    const el = listRef.current.querySelector(
+      `[data-kanban-task-id="${highlightedTaskId}"]`
+    );
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [highlightedTaskId]);
 
   return (
     <section
       data-kanban-zone={status}
       data-no-drop-highlight
-      className="kanban-drop-zone relative flex min-h-[420px] flex-col overflow-visible rounded-4xl border border-white/65 p-4 shadow-soft backdrop-blur-glass"
+      className="kanban-drop-zone relative flex min-h-[280px] flex-col overflow-visible rounded-4xl border border-white/65 p-4 shadow-soft backdrop-blur-glass md:min-h-[420px]"
     >
       <motion.div
         aria-hidden
@@ -95,19 +129,20 @@ export function KanbanColumn({
 
           <LayoutGroup id={`kanban-${status}`}>
             <motion.ul
+              ref={listRef}
               layout
               data-kanban-list
               className="flex min-h-0 flex-1 flex-col gap-3 overflow-visible p-1"
               transition={KANBAN_MORPH_SPRING}
             >
-              {tasks.length === 0 ? (
+              {orderedTasks.length === 0 ? (
                 <li className="flex min-h-[280px] flex-1 list-none flex-col">
                   <div className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-charcoal/10 px-4 text-center text-xs text-charcoal/35">
                     Drop tasks here
                   </div>
                 </li>
               ) : (
-                tasks.map((task) => {
+                orderedTasks.map((task) => {
                   const isTimerTask = activeTaskId === task.id;
                   const isFocusRunning =
                     isTimerTask &&
@@ -119,13 +154,19 @@ export function KanbanColumn({
                     task.status === "In-Progress";
                   const isInQueue =
                     status === "In-Progress" && !isTimerTask;
+                  const isHighlighted = task.id === highlightedTaskId;
 
                   return (
                     <motion.li
                       key={task.id}
                       layout
+                      layoutId={task.id}
                       data-kanban-task-id={task.id}
-                      transition={KANBAN_MORPH_SPRING}
+                      transition={
+                        isHighlighted && highlightSorting
+                          ? HIGHLIGHT_SORT_SPRING
+                          : KANBAN_MORPH_SPRING
+                      }
                       className="relative list-none overflow-visible"
                     >
                       <TaskCard
@@ -135,6 +176,7 @@ export function KanbanColumn({
                         isFocusRunning={isFocusRunning}
                         isFocusPaused={isFocusPaused}
                         isInQueue={isInQueue}
+                        isHighlighted={isHighlighted}
                         onActivate={() => activate(task.id)}
                         onDragStart={onDragStart}
                         onEdit={() => onEdit(task)}

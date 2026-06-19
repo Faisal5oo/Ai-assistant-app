@@ -1,5 +1,18 @@
 import mongoose from "mongoose";
 
+/**
+ * Lightweight wellness micro-habit state captured at deep work session end.
+ * All fields are optional — sparse so existing documents aren't affected.
+ */
+const WellnessCheckSchema = new mongoose.Schema(
+  {
+    tookHydrationBreak: { type: Boolean, default: false },
+    stretchedDuringInterval: { type: Boolean, default: false },
+    avoidedPhoneDistraction: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
 const DeepWorkSessionLogSchema = new mongoose.Schema(
   {
     userId: {
@@ -53,6 +66,11 @@ const DeepWorkSessionLogSchema = new mongoose.Schema(
       type: Number,
       default: 0,
       min: 0,
+    },
+    /** Optional wellness micro-habit snapshot — captured at session close */
+    wellness: {
+      type: WellnessCheckSchema,
+      default: undefined,
     },
     createdAt: {
       type: Date,

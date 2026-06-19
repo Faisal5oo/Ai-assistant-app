@@ -143,6 +143,20 @@ const ActiveTimeBlockRunwaySchema = new mongoose.Schema(
   { _id: false }
 );
 
+const ActiveFlowSessionSchema = new mongoose.Schema(
+  {
+    primaryTaskId: { type: String, required: true },
+    primaryTaskTitle: { type: String, required: true, maxlength: 200 },
+    targetTaskIds: { type: [String], default: [] },
+    /** Unpacked execution queue: ordered task ids resolved from tasks + batch categories */
+    runwayQueue: { type: [String], default: [] },
+    durationMinutes: { type: Number, required: true, min: 1, max: 180 },
+    startedAt: { type: Number, required: true },
+    updatedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const UserDashboardSchema = new mongoose.Schema(
   {
     userId: {
@@ -182,6 +196,10 @@ const UserDashboardSchema = new mongoose.Schema(
     },
     activeTimeBlockRunway: {
       type: ActiveTimeBlockRunwaySchema,
+      default: undefined,
+    },
+    activeFlowSession: {
+      type: ActiveFlowSessionSchema,
       default: undefined,
     },
   },

@@ -1,5 +1,18 @@
 import mongoose from "mongoose";
 
+/**
+ * Lightweight wellness micro-habit state captured at session end.
+ * All fields are optional — sparse so existing documents aren't affected.
+ */
+const WellnessCheckSchema = new mongoose.Schema(
+  {
+    tookHydrationBreak: { type: Boolean, default: false },
+    stretchedDuringInterval: { type: Boolean, default: false },
+    avoidedPhoneDistraction: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
 const PomodoroSessionLogSchema = new mongoose.Schema(
   {
     userId: {
@@ -28,6 +41,11 @@ const PomodoroSessionLogSchema = new mongoose.Schema(
       type: String,
       enum: ["completed", "abandoned"],
       required: true,
+    },
+    /** Optional wellness micro-habit snapshot — captured at session close */
+    wellness: {
+      type: WellnessCheckSchema,
+      default: undefined,
     },
     createdAt: {
       type: Date,
