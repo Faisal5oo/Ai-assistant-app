@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { WelcomeHeader } from "@/components/dashboard/WelcomeHeader";
 import { ProfileCard } from "@/components/dashboard/ProfileCard";
 import { WeeklyProgressChart } from "@/components/dashboard/WeeklyProgressChart";
@@ -7,14 +8,16 @@ import { TimeTracker } from "@/components/dashboard/TimeTracker";
 import { TimelineCalendar } from "@/components/dashboard/TimelineCalendar";
 import { OnboardingProgress, TodayChecklist } from "@/components/dashboard/TodayChecklist";
 import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
+import { DailyShutdownReview } from "@/components/dashboard/DailyShutdownReview";
 import { useTasksQuery } from "@/hooks/queries/useTasksQuery";
 import { useDashboardQuery } from "@/hooks/queries/useDashboardQuery";
 import { appToast } from "@/lib/toast";
-import { useEffect } from "react";
+import { Moon } from "lucide-react";
 
 export default function DashboardPage() {
   const tasksQuery = useTasksQuery();
   const dashboardQuery = useDashboardQuery();
+  const [shutdownOpen, setShutdownOpen] = useState(false);
 
   const isLoading = tasksQuery.isLoading || dashboardQuery.isLoading;
   const isError = tasksQuery.isError || dashboardQuery.isError;
@@ -34,7 +37,24 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <WelcomeHeader />
+      <DailyShutdownReview
+        open={shutdownOpen}
+        onClose={() => setShutdownOpen(false)}
+      />
+
+      {/* Page header row: WelcomeHeader + Shutdown trigger */}
+      <div className="relative">
+        <WelcomeHeader />
+        <button
+          type="button"
+          onClick={() => setShutdownOpen(true)}
+          className="absolute right-0 top-0 flex items-center gap-2 rounded-xl border border-charcoal/10 bg-white px-3.5 py-2 text-xs font-semibold text-charcoal/60 shadow-soft hover:border-charcoal/20 hover:text-charcoal/80 hover:shadow-glass transition-all"
+          title="Daily Shutdown Review"
+        >
+          <Moon size={14} />
+          <span className="hidden sm:inline">Shutdown Review</span>
+        </button>
+      </div>
 
       {/*
         Responsive 12-col grid strategy:

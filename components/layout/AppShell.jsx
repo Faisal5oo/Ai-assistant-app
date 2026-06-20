@@ -9,6 +9,7 @@ import { Sidebar } from "./Sidebar";
 import { TopNav } from "./TopNav";
 import { RunwayConductorBridge } from "@/components/runway/RunwayConductorBridge";
 import { DeepWorkPersistenceBridge } from "@/components/deep-work/DeepWorkPersistenceBridge";
+import { QuickAddSheet } from "@/components/global/QuickAddSheet";
 
 const PERIPHERAL_EXIT = {
   opacity: 0,
@@ -41,6 +42,7 @@ export function AppShell({ children }) {
       <TimerPersistenceBridge />
       <DeepWorkPersistenceBridge />
       <RunwayConductorBridge />
+      {!isAuthRoute && <QuickAddSheet />}
       <AnimatePresence initial={false}>
         {showPeripherals && (
           <motion.div

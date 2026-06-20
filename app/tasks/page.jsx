@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { KanbanBoard } from "@/components/tasks/KanbanBoard";
 import { TasksSkeleton } from "@/components/tasks/TasksSkeleton";
@@ -8,7 +8,7 @@ import { useTasksQuery } from "@/hooks/queries/useTasksQuery";
 import { useTaskStore } from "@/store/useTaskStore";
 import { appToast } from "@/lib/toast";
 
-export default function TasksPage() {
+function TasksPageContent() {
   const { isLoading, isError, error } = useTasksQuery();
   const searchParams = useSearchParams();
   const setHighlightedTaskId = useTaskStore((s) => s.setHighlightedTaskId);
@@ -35,4 +35,12 @@ export default function TasksPage() {
   }
 
   return <KanbanBoard />;
+}
+
+export default function TasksPage() {
+  return (
+    <Suspense fallback={<TasksSkeleton />}>
+      <TasksPageContent />
+    </Suspense>
+  );
 }

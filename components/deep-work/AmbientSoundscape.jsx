@@ -53,8 +53,9 @@ export function AmbientSoundscape({ active }) {
   }, [volume, muted]);
 
   useEffect(() => {
+    const audio = audioRef.current;
     return () => {
-      audioRef.current?.pause();
+      audio?.pause();
     };
   }, []);
 
