@@ -4,6 +4,8 @@ import Task from "@/models/Task";
 import { requireAuth, zodErrorResponse } from "@/lib/api-auth";
 import { completeTaskSchema } from "@/lib/validations/productivity";
 import { toClientTask } from "@/lib/task-serializers";
+import { resolveCompletionFallbackMs } from "@/lib/task-completion-time";
+import { creditDashboardCompletionTime } from "@/lib/task-completion-time.server";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +41,7 @@ export async function POST(request) {
 
     const existing = await Task.findOne(
       { _id: taskId, userId: auth.id },
-      { status: 1 }
+      { status: 1, actualTimeSpent: 1, estimatedTime: 1 }
     ).lean();
 
     if (!existing) {
@@ -58,22 +60,32 @@ export async function POST(request) {
       });
     }
 
+    const fallbackMs = resolveCompletionFallbackMs(existing);
+    const completionUpdate = {
+      status: "Completed",
+      completedAt: new Date(),
+      timeBlockAllocations: [],
+      ...(fallbackMs != null ? { actualTimeSpent: fallbackMs } : {}),
+    };
+
     const task = await Task.findOneAndUpdate(
       { _id: taskId, userId: auth.id },
       {
-        $set: {
-          status: "Completed",
-          completedAt: new Date(),
-          timeBlockAllocations: [],
-        },
+        $set: completionUpdate,
         $unset: { scheduledAt: "" },
       },
       { new: true, runValidators: true }
     );
 
+    const dailyLogs =
+      fallbackMs != null
+        ? await creditDashboardCompletionTime(auth.id, fallbackMs)
+        : null;
+
     return NextResponse.json({
       success: true,
       task: toClientTask(task),
+      ...(dailyLogs ? { dailyLogs } : {}),
     });
   } catch (error) {
     console.error("[productivity tasks complete POST]", error);

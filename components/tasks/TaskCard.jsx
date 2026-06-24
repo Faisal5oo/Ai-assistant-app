@@ -14,6 +14,7 @@ import {
 import { FocusQueueBadge } from "@/components/tasks/FocusQueueBadge";
 import { formatMsToHoursMinutes } from "@/lib/utils";
 import { KANBAN_MORPH_SPRING } from "@/lib/kanban";
+import { primeAudioContext } from "@/lib/timerCompletionSound";
 
 const DRAG_THRESHOLD_PX = 5;
 
@@ -45,6 +46,7 @@ const CATEGORY_STYLES = {
  * @param {(taskId: string, title: string, x: number, y: number, sourceStatus: string) => void} props.onDragStart
  * @param {() => void} props.onEdit
  * @param {() => void} props.onDelete
+ * @param {boolean} [props.dragDisabled]
  */
 export function TaskCard({
   task,
@@ -58,6 +60,7 @@ export function TaskCard({
   onDragStart,
   onEdit,
   onDelete,
+  dragDisabled = false,
 }) {
   const dragPendingRef = useRef(
     /** @type {{ x: number; y: number; pointerId: number } | null} */ (null)
@@ -72,6 +75,7 @@ export function TaskCard({
 
   const handlePointerDown = useCallback(
     (e) => {
+      if (dragDisabled) return;
       if (e.button !== 0) return;
       if (e.target.closest("[data-kanban-no-drag]")) return;
 
@@ -113,7 +117,7 @@ export function TaskCard({
       window.addEventListener("pointerup", onUp);
       window.addEventListener("pointercancel", onUp);
     },
-    [commitDrag]
+    [commitDrag, dragDisabled]
   );
 
   return (
@@ -135,7 +139,9 @@ export function TaskCard({
           layout
           drag={false}
           onPointerDown={handlePointerDown}
-          className={`glass-card group relative w-full cursor-grab overflow-hidden border-l-4 p-4 active:cursor-grabbing [touch-action:none] [-webkit-user-drag:none] ${
+          className={`glass-card group relative w-full overflow-hidden border-l-4 p-4 [touch-action:none] [-webkit-user-drag:none] ${
+            dragDisabled ? "cursor-default" : "cursor-grab active:cursor-grabbing"
+          } ${
             isDragging ? "invisible" : ""
           } ${CATEGORY_STYLES[task.category]} ${
             isHighlighted
@@ -219,8 +225,8 @@ export function TaskCard({
               <button
                 type="button"
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={onActivate}
-                className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-gold/25 py-2 text-xs font-medium text-charcoal transition hover:bg-gold/40"
+                onClick={() => { primeAudioContext(); onActivate(); }}
+                className="flex min-h-[44px] flex-1 items-center justify-center gap-1 rounded-xl bg-gold/25 py-2 text-xs font-medium text-charcoal transition hover:bg-gold/40 sm:min-h-0 sm:py-2"
               >
                 <Play size={12} /> Focus
               </button>
@@ -229,7 +235,7 @@ export function TaskCard({
               type="button"
               onPointerDown={(e) => e.stopPropagation()}
               onClick={onEdit}
-              className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-white/60 py-2 text-xs font-medium transition hover:bg-white"
+              className="flex min-h-[44px] flex-1 items-center justify-center gap-1 rounded-xl bg-white/60 py-2 text-xs font-medium transition hover:bg-white sm:min-h-0 sm:py-2"
             >
               <Pencil size={12} /> Edit
             </button>
@@ -237,7 +243,7 @@ export function TaskCard({
               type="button"
               onPointerDown={(e) => e.stopPropagation()}
               onClick={onDelete}
-              className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/60 text-red-600 transition hover:bg-red-50"
+              className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl bg-white/60 text-red-600 transition hover:bg-red-50 sm:h-8 sm:min-h-0 sm:w-8 sm:min-w-0"
               aria-label="Delete task"
             >
               <Trash2 size={14} />

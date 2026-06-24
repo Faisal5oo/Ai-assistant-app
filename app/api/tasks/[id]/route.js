@@ -4,6 +4,8 @@ import Task from "@/models/Task";
 import { requireAuth, zodErrorResponse } from "@/lib/api-auth";
 import { updateTaskSchema } from "@/lib/validations/task";
 import { toClientTask } from "@/lib/task-serializers";
+import { resolveCompletionFallbackOnTransition } from "@/lib/task-completion-time";
+import { creditDashboardCompletionTime } from "@/lib/task-completion-time.server";
 
 export const dynamic = "force-dynamic";
 
@@ -90,8 +92,21 @@ export async function PATCH(request, { params }) {
 
     const existingTask = await Task.findOne(
       { _id: id, userId: auth.id },
-      { status: 1 }
+      { status: 1, actualTimeSpent: 1, estimatedTime: 1 }
     ).lean();
+
+    const isTransitionToCompleted =
+      parsed.data.status === "Completed" && existingTask?.status !== "Completed";
+
+    const fallbackMs = resolveCompletionFallbackOnTransition(
+      isTransitionToCompleted,
+      existingTask,
+      parsed.data
+    );
+
+    if (fallbackMs != null) {
+      parsed.data.actualTimeSpent = fallbackMs;
+    }
 
     const mongoUpdate = buildMongoUpdate(parsed.data, existingTask);
     if (!mongoUpdate.$set && !mongoUpdate.$unset) {
@@ -114,7 +129,16 @@ export async function PATCH(request, { params }) {
       );
     }
 
-    return NextResponse.json({ success: true, task: toClientTask(task) });
+    const dailyLogs =
+      fallbackMs != null
+        ? await creditDashboardCompletionTime(auth.id, fallbackMs)
+        : null;
+
+    return NextResponse.json({
+      success: true,
+      task: toClientTask(task),
+      ...(dailyLogs ? { dailyLogs } : {}),
+    });
   } catch (error) {
     console.error("[tasks PATCH]", error);
     return NextResponse.json(

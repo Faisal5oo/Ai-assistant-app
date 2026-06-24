@@ -46,7 +46,7 @@ function FlowVoidCanvasInner({ session, onComplete, onAbandon, tasks = [] }) {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={FLOW_LAYOUT_TRANSITION}
-        className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto px-6 py-8"
+        className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto overflow-x-hidden px-4 py-6 sm:px-6 sm:py-8"
         style={{
           background: "linear-gradient(165deg, #FDFCF8 0%, #F9F7F2 50%, #F0EBE0 100%)",
         }}
@@ -57,7 +57,7 @@ function FlowVoidCanvasInner({ session, onComplete, onAbandon, tasks = [] }) {
         </p>
 
         {/* Primary task title */}
-        <h2 className="mb-10 max-w-lg text-center font-display text-base font-medium tracking-wide text-charcoal/70 md:text-lg">
+        <h2 className="mb-6 max-w-lg text-center font-display text-sm font-medium tracking-wide text-charcoal/70 sm:mb-10 sm:text-base md:text-lg">
           {session.primaryTaskTitle}
         </h2>
 
@@ -74,7 +74,7 @@ function FlowVoidCanvasInner({ session, onComplete, onAbandon, tasks = [] }) {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.5 }}
-            className="mt-10 w-full max-w-2xl"
+            className="mt-6 w-full max-w-lg sm:mt-10 sm:max-w-2xl"
           >
             <p className="mb-3 text-center text-[10px] font-semibold uppercase tracking-[0.24em] text-charcoal/35">
               Execution Runway
@@ -120,7 +120,7 @@ function FlowVoidCanvasInner({ session, onComplete, onAbandon, tasks = [] }) {
         )}
 
         {/* Ambient soundscape bar */}
-        <div className="mt-10 w-full max-w-2xl px-4">
+        <div className="mt-6 w-full max-w-lg px-2 sm:mt-10 sm:max-w-2xl sm:px-4">
           <FlowAmbientBoard active />
         </div>
 
@@ -152,7 +152,7 @@ function FlowVoidCanvasInner({ session, onComplete, onAbandon, tasks = [] }) {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.96, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="glass-card w-full max-w-sm border-gold/20 p-8 text-center"
+              className="glass-card w-full max-w-sm border-gold/20 p-5 text-center sm:p-8"
             >
               <button
                 type="button"

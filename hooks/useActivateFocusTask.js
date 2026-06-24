@@ -55,10 +55,10 @@ export function useActivateFocusTask() {
       return { taskId, timerOptions };
     },
     onMutate: async ({ taskId, previousTaskId, sessionMs, sessionInterval, reorder, timerOptions }) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.tasks });
+      await queryClient.cancelQueries({ queryKey: queryKeys.tasks() });
       await queryClient.cancelQueries({ queryKey: queryKeys.dashboard });
 
-      const previousTasks = queryClient.getQueryData(queryKeys.tasks) ?? [];
+      const previousTasks = queryClient.getQueryData(queryKeys.tasks()) ?? [];
       const previousDashboard = queryClient.getQueryData(queryKeys.dashboard);
       const timerSnapshot = captureTimerSnapshot();
 
@@ -73,7 +73,7 @@ export function useActivateFocusTask() {
       }
 
       nextTasks = applyHoistInProgress(nextTasks, reorder);
-      queryClient.setQueryData(queryKeys.tasks, nextTasks);
+      queryClient.setQueryData(queryKeys.tasks(), nextTasks);
 
       const nextTimer = {
         taskId,
@@ -95,7 +95,7 @@ export function useActivateFocusTask() {
     },
     onError: (error, _vars, context) => {
       if (context?.previousTasks) {
-        queryClient.setQueryData(queryKeys.tasks, context.previousTasks);
+        queryClient.setQueryData(queryKeys.tasks(), context.previousTasks);
       }
       if (context?.previousDashboard) {
         queryClient.setQueryData(queryKeys.dashboard, context.previousDashboard);

@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Play, Pause, Square, Clock } from "lucide-react";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useTasks } from "@/hooks/queries/useTasksQuery";
@@ -9,6 +9,7 @@ import { useTimerTick } from "@/hooks/useTimerTick";
 import { formatMsToTimer } from "@/lib/utils";
 import { persistFocusSession } from "@/lib/focusSessionSync";
 import { checkpointFocusSessionRemote } from "@/lib/workspaceSync";
+import { primeAudioContext } from "@/lib/timerCompletionSound";
 
 const RING_SIZE = 160;
 const STROKE = 10;
@@ -19,13 +20,22 @@ function TimerProgressRing() {
   const taskId = useTaskStore((s) => s.activeTimer.taskId);
   const isRunning = useTaskStore((s) => s.activeTimer.isRunning);
   const targetMs = useTaskStore((s) => s.activeTimer.targetMs) ?? 25 * 60 * 1000;
+  const completionFired = useTaskStore((s) => s.timerCompletionFired);
   const displayMs = useTimerTick();
-  const progress = taskId && isRunning ? Math.min(displayMs / targetMs, 1) : taskId ? displayMs / targetMs : 0;
-  const offset = CIRCUMFERENCE * (1 - Math.min(progress, 1));
+
+  const isOverrun = completionFired && taskId;
+  const rawProgress = taskId ? displayMs / targetMs : 0;
+  const clampedProgress = Math.min(rawProgress, 1);
+  const offset = CIRCUMFERENCE * (1 - clampedProgress);
+
+  // Overrun progress: how far past 100% we are (capped at 1 extra lap)
+  const overrunProgress = isOverrun ? Math.min((rawProgress - 1), 1) : 0;
+  const overrunOffset = CIRCUMFERENCE * (1 - overrunProgress);
 
   return (
     <div className="relative" style={{ width: RING_SIZE, height: RING_SIZE }}>
       <svg width={RING_SIZE} height={RING_SIZE} className="-rotate-90">
+        {/* Track */}
         <circle
           cx={RING_SIZE / 2}
           cy={RING_SIZE / 2}
@@ -34,24 +44,62 @@ function TimerProgressRing() {
           stroke="rgba(26,26,26,0.08)"
           strokeWidth={STROKE}
         />
+        {/* Gold fill arc — stays full at 100% once complete */}
         <motion.circle
           cx={RING_SIZE / 2}
           cy={RING_SIZE / 2}
           r={RADIUS}
           fill="none"
-          stroke="#FACC15"
+          stroke={isOverrun ? "#a16207" : "#FACC15"}
           strokeWidth={STROKE}
           strokeLinecap="round"
           strokeDasharray={CIRCUMFERENCE}
-          animate={{ strokeDashoffset: offset }}
+          animate={{ strokeDashoffset: isOverrun ? 0 : offset }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
         />
+        {/* Overrun arc — amber secondary ring on top */}
+        {isOverrun && (
+          <motion.circle
+            cx={RING_SIZE / 2}
+            cy={RING_SIZE / 2}
+            r={RADIUS}
+            fill="none"
+            stroke="#FACC15"
+            strokeWidth={STROKE - 2}
+            strokeLinecap="round"
+            strokeDasharray={CIRCUMFERENCE}
+            animate={{ strokeDashoffset: overrunOffset }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+          />
+        )}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-display text-3xl font-semibold tabular-nums">
+        <span className={`font-display text-3xl font-semibold tabular-nums ${isOverrun ? "text-amber-600" : ""}`}>
           {formatMsToTimer(displayMs)}
         </span>
-        <span className="mt-1 text-xs text-charcoal/50">Work Time</span>
+        <AnimatePresence mode="wait">
+          {isOverrun ? (
+            <motion.span
+              key="overrun"
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="mt-1 text-xs font-semibold text-amber-500"
+            >
+              +{formatMsToTimer(displayMs - targetMs)} over
+            </motion.span>
+          ) : (
+            <motion.span
+              key="label"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="mt-1 text-xs text-charcoal/50"
+            >
+              Work Time
+            </motion.span>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
@@ -79,7 +127,7 @@ export function TimeTracker() {
       elapsedMs: 0,
       mode: "work",
     };
-    useTaskStore.setState({ activeTimer: timer, activeTechnique: null });
+    useTaskStore.setState({ activeTimer: timer, activeTechnique: null, timerCompletionFired: false });
     persistFocusSession(timer, null);
     checkpointFocusSessionRemote({
       taskId: GENERAL_FOCUS_TASK_ID,
@@ -93,6 +141,8 @@ export function TimeTracker() {
   };
 
   const handlePlay = () => {
+    // Unlock AudioContext on this user gesture so it's ready when timer fires
+    primeAudioContext();
     if (taskId) {
       if (isRunning) pauseTimer();
       else resumeTimer();

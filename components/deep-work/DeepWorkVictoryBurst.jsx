@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 
 const PARTICLES = Array.from({ length: 18 }, (_, i) => ({
@@ -10,11 +11,46 @@ const PARTICLES = Array.from({ length: 18 }, (_, i) => ({
 
 /**
  * Dark-and-gold deep work task completion celebration.
+ * On mobile (<768px) renders a lightweight opacity crossfade instead of the
+ * full particle burst to avoid layout jumps and clipping on narrow viewports.
  * @param {Object} props
  * @param {boolean} props.active
  */
 export function DeepWorkVictoryBurst({ active }) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    setIsMobile(mq.matches);
+    const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   if (!active) return null;
+
+  if (isMobile) {
+    return (
+      <motion.div
+        className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center overflow-hidden"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: [0, 1, 1, 0] }}
+        transition={{ duration: 1.6, ease: "easeInOut", times: [0, 0.2, 0.7, 1] }}
+        aria-hidden
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-charcoal/85 via-[#1a1814]/75 to-charcoal/90" />
+        <div className="absolute inset-0 bg-gradient-to-tr from-gold/35 via-amber-300/20 to-transparent" />
+        <motion.p
+          className="relative z-10 font-display text-2xl font-semibold tracking-tight text-gold"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: [0, 1, 1, 0], y: [10, 0, 0, -6] }}
+          transition={{ duration: 1.5, ease: "easeOut", times: [0, 0.2, 0.7, 1] }}
+        >
+          Breakthrough secured
+        </motion.p>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div

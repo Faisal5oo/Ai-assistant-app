@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 
 const FLUID_PARTICLES = Array.from({ length: 32 }, (_, i) => ({
@@ -11,11 +12,57 @@ const FLUID_PARTICLES = Array.from({ length: 32 }, (_, i) => ({
 
 /**
  * Premium gold fluid-burst for early objective achievement.
+ * On mobile (<768px) renders a lightweight opacity + upward-fade crossfade
+ * instead of the full vmax-scale burst to prevent clipping and layout jumps.
  * @param {Object} props
  * @param {boolean} props.active
  */
 export function EarlyVictoryFluidBurst({ active }) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    setIsMobile(mq.matches);
+    const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   if (!active) return null;
+
+  if (isMobile) {
+    return (
+      <motion.div
+        className="pointer-events-none fixed inset-0 z-[120] flex items-center justify-center overflow-hidden"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: [0, 1, 1, 0] }}
+        transition={{ duration: 1.8, ease: "easeInOut", times: [0, 0.15, 0.7, 1] }}
+        aria-hidden
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-charcoal/80 via-[#14120e]/70 to-charcoal/90" />
+        <motion.div
+          className="absolute inset-0 bg-gradient-to-tr from-gold/30 via-amber-300/15 to-transparent"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, 1, 0] }}
+          transition={{ duration: 1.6, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="relative z-10 flex flex-col items-center gap-2"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: [0, 1, 1, 0], y: [10, 0, 0, -8] }}
+          transition={{ duration: 1.7, ease: "easeOut", times: [0, 0.15, 0.7, 1] }}
+        >
+          <div
+            className="h-16 w-16 rounded-full"
+            style={{
+              background: "radial-gradient(circle, rgba(250,204,21,0.45) 0%, transparent 70%)",
+              boxShadow: "0 0 32px rgba(250,204,21,0.4)",
+            }}
+          />
+        </motion.div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div

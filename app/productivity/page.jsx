@@ -546,7 +546,7 @@ export default function ProductivityPage() {
         </nav>
 
         {/* ── RIGHT: Theater Canvas ──────────────────────────────────────── */}
-        <div className="w-full lg:col-span-8 relative overflow-hidden rounded-3xl bg-white/80 border border-zinc-200/50 shadow-md shadow-zinc-200/20 p-5 sm:p-8 flex flex-col justify-between min-h-[420px] lg:min-h-0">
+        <div className="w-full lg:col-span-8 relative overflow-hidden rounded-3xl bg-white/80 border border-zinc-200/50 shadow-md shadow-zinc-200/20 p-4 sm:p-6 lg:p-8 flex flex-col justify-between min-h-0 lg:min-h-0">
 
           {/* Faint warm radial behind the preview */}
           <div
@@ -575,10 +575,10 @@ export default function ProductivityPage() {
                   <span className="text-[10px] font-semibold tracking-[0.14em] uppercase text-zinc-400">
                     {String(TECHNIQUES.findIndex((t) => t.id === focused) + 1).padStart(2, "0")} / {String(TECHNIQUES.length).padStart(2, "0")}
                   </span>
-                  <h2 className="font-display text-[22px] sm:text-[28px] font-semibold tracking-tight text-zinc-900 leading-snug">
+                  <h2 className="font-display text-[18px] sm:text-[22px] lg:text-[28px] font-semibold tracking-tight text-zinc-900 leading-snug">
                     {focusedTech.title}
                   </h2>
-                  <p className="mt-0.5 max-w-full sm:max-w-sm text-[12.5px] sm:text-[13px] leading-relaxed text-zinc-500">
+                  <p className="mt-0.5 hidden max-w-full sm:block sm:max-w-sm text-[12.5px] sm:text-[13px] leading-relaxed text-zinc-500">
                     {focusedTech.description}
                   </p>
                 </div>
@@ -596,19 +596,19 @@ export default function ProductivityPage() {
               </div>
 
               {/* Abstract visual preview — constrained height on mobile, flex-1 on desktop */}
-              <div className="h-48 sm:h-56 lg:h-auto lg:flex-1 flex items-center justify-center min-h-0 overflow-hidden">
+              <div className="h-36 sm:h-48 md:h-56 lg:h-auto lg:flex-1 flex items-center justify-center min-h-0 overflow-hidden">
                 <PreviewComponent />
               </div>
 
               {/* Canvas footer: CTA */}
               <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                 {focusedTech.href ? (
-                  <Link href={focusedTech.href}>
+                  <Link href={focusedTech.href} className="w-full sm:w-auto">
                     <motion.span
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       transition={{ type: "spring", stiffness: 380, damping: 22 }}
-                      className="inline-flex items-center gap-2.5 bg-zinc-950 text-white hover:bg-zinc-900 px-5 py-3 sm:px-6 sm:py-3.5 rounded-full transition-colors duration-200 text-[12.5px] sm:text-[13px] font-semibold tracking-tight cursor-pointer"
+                      className="inline-flex w-full items-center justify-center gap-2.5 bg-zinc-950 text-white hover:bg-zinc-900 px-5 py-3 sm:w-auto sm:px-6 sm:py-3.5 rounded-full transition-colors duration-200 text-[12.5px] sm:text-[13px] font-semibold tracking-tight cursor-pointer"
                     >
                       Open Workstation
                       <ArrowRight size={14} strokeWidth={2} />
@@ -621,7 +621,7 @@ export default function ProductivityPage() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     transition={{ type: "spring", stiffness: 380, damping: 22 }}
-                    className="inline-flex items-center gap-2.5 bg-zinc-950 text-white hover:bg-zinc-900 px-5 py-3 sm:px-6 sm:py-3.5 rounded-full transition-colors duration-200 text-[12.5px] sm:text-[13px] font-semibold tracking-tight"
+                    className="inline-flex w-full items-center justify-center gap-2.5 bg-zinc-950 text-white hover:bg-zinc-900 px-5 py-3 sm:w-auto sm:px-6 sm:py-3.5 rounded-full transition-colors duration-200 text-[12.5px] sm:text-[13px] font-semibold tracking-tight"
                   >
                     Open Workstation
                     <ArrowRight size={14} strokeWidth={2} />

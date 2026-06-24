@@ -68,149 +68,174 @@ export function TaskModal({ open, onClose, onSave, task, isSaving = false }) {
       open={open}
       onClose={onClose}
       ariaLabel={task ? "Edit task" : "Create task"}
+      closeOnBackdropClick={false}
+      layout="adaptive"
     >
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="font-display text-xl font-semibold">
-          {task ? "Edit Task" : "Create Task"}
-        </h2>
-        <button
-          type="button"
-          onClick={onClose}
-          disabled={isSaving}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-glass disabled:opacity-50"
-        >
-          <X size={18} />
-        </button>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-charcoal/60">
-            Title
-          </label>
-          <input
-            className="input-field"
-            value={form.title}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, title: e.target.value }))
-            }
-            placeholder="What needs to be done?"
-            required
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-charcoal/60">
-              Category
-            </label>
-            <select
-              className="input-field"
-              value={form.category}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, category: e.target.value }))
-              }
-            >
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+      <form
+        onSubmit={handleSubmit}
+        className="flex max-h-[85dvh] flex-col md:max-h-[90vh]"
+      >
+        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-charcoal/8 px-4 pb-3 pt-4 md:px-8 md:pt-8">
+          <div className="min-w-0 pr-2">
+            <h2 className="font-display text-xl font-semibold tracking-tight text-charcoal">
+              {task ? "Edit Task" : "Create Task"}
+            </h2>
+            <p className="mt-1 text-xs text-charcoal/45">
+              Unsaved changes are kept until you save or cancel.
+            </p>
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-charcoal/60">
-              Priority
-            </label>
-            <select
-              className="input-field"
-              value={form.priority}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, priority: e.target.value }))
-              }
-            >
-              {PRIORITIES.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSaving}
+            aria-label="Close"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-charcoal shadow-glass transition hover:bg-white/90 disabled:opacity-50"
+          >
+            <X size={18} />
+          </button>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 md:px-8 md:py-6">
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-charcoal/60">
+                Title
+              </label>
+              <input
+                className="input-field"
+                value={form.title}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, title: e.target.value }))
+                }
+                placeholder="What needs to be done?"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-charcoal/60">
+                  Category
+                </label>
+                <select
+                  className="input-field"
+                  value={form.category}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, category: e.target.value }))
+                  }
+                >
+                  {CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-charcoal/60">
+                  Priority
+                </label>
+                <select
+                  className="input-field"
+                  value={form.priority}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, priority: e.target.value }))
+                  }
+                >
+                  {PRIORITIES.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-charcoal/60">
+                  Estimated (minutes)
+                </label>
+                <input
+                  type="number"
+                  min={5}
+                  step={5}
+                  className="input-field"
+                  value={form.estimatedTime}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      estimatedTime: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-charcoal/60">
+                  Scheduled
+                </label>
+                <input
+                  type="datetime-local"
+                  className="input-field"
+                  value={form.scheduledAt}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, scheduledAt: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-charcoal/60">
+                Tags (comma separated)
+              </label>
+              <input
+                className="input-field"
+                value={form.tags}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, tags: e.target.value }))
+                }
+                placeholder="design, urgent"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-charcoal/60">
+                Description
+              </label>
+              <textarea
+                className="input-field min-h-[80px] resize-none"
+                value={form.description}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, description: e.target.value }))
+                }
+                placeholder="Optional details..."
+              />
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-charcoal/60">
-              Estimated (minutes)
-            </label>
-            <input
-              type="number"
-              min={5}
-              step={5}
-              className="input-field"
-              value={form.estimatedTime}
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  estimatedTime: e.target.value,
-                }))
-              }
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-charcoal/60">
-              Scheduled
-            </label>
-            <input
-              type="datetime-local"
-              className="input-field"
-              value={form.scheduledAt}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, scheduledAt: e.target.value }))
-              }
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="mb-1 block text-xs font-medium text-charcoal/60">
-            Tags (comma separated)
-          </label>
-          <input
-            className="input-field"
-            value={form.tags}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, tags: e.target.value }))
-            }
-            placeholder="design, urgent"
-          />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-xs font-medium text-charcoal/60">
-            Description
-          </label>
-          <textarea
-            className="input-field min-h-[80px] resize-none"
-            value={form.description}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, description: e.target.value }))
-            }
-            placeholder="Optional details..."
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={isSaving}
-          className="pill-btn-dark w-full py-3 disabled:opacity-60"
-        >
-          {isSaving
-            ? "Saving…"
-            : task
-              ? "Save Changes"
-              : "Create Task"}
-        </button>
+        <footer className="flex shrink-0 flex-col-reverse gap-3 border-t border-charcoal/8 bg-cream-50 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:flex-row md:justify-end md:px-8 md:py-5">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSaving}
+            className="pill-btn-ghost w-full md:w-auto"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isSaving}
+            className="pill-btn-dark w-full py-3 disabled:opacity-60 md:w-auto md:min-w-[10rem]"
+          >
+            {isSaving
+              ? "Saving…"
+              : task
+                ? "Save Changes"
+                : "Create Task"}
+          </button>
+        </footer>
       </form>
     </ViewportModal>
   );

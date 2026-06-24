@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import { ListTodo, Plus } from "lucide-react";
 
 import { useTaskStore } from "@/store/useTaskStore";
-import { useTasks } from "@/hooks/queries/useTasksQuery";
+import { useTasks, useArchivedTasks } from "@/hooks/queries/useTasksQuery";
 import { useConfirmDeleteTask } from "@/hooks/useConfirmDeleteTask";
 import {
   useCreateTaskMutation,
@@ -34,6 +34,7 @@ import { TaskModal } from "./TaskModal";
 export function KanbanBoard() {
 
   const { tasks } = useTasks();
+  const { archivedTasks, isLoading: archivedLoading } = useArchivedTasks();
   const batchingFilterTag = useTaskStore((s) => s.batchingFilterTag);
   const setBatchingFilterTag = useTaskStore((s) => s.setBatchingFilterTag);
   const createTask = useCreateTaskMutation();
@@ -62,20 +63,23 @@ export function KanbanBoard() {
 
 
   const visibleTasks = batchingFilterTag
-
     ? tasks.filter(
-
         (t) =>
-
           t.tags.some(
-
             (tg) => tg.toLowerCase() === batchingFilterTag.toLowerCase()
-
           ) || t.status === "Completed"
-
       )
-
     : tasks;
+
+  const visibleArchivedTasks = batchingFilterTag
+    ? archivedTasks.filter((t) =>
+        t.tags.some(
+          (tg) => tg.toLowerCase() === batchingFilterTag.toLowerCase()
+        )
+      )
+    : archivedTasks;
+
+  const visibleTaskCount = visibleTasks.length + visibleArchivedTasks.length;
 
 
 
@@ -208,25 +212,26 @@ export function KanbanBoard() {
       className="relative min-h-[calc(100vh-8rem)]"
     >
 
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+      <div className="mb-5 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4">
 
         <div className="max-w-2xl">
 
-          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gold/30 text-charcoal shadow-glass">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-gold/30 text-charcoal shadow-glass sm:h-12 sm:w-12">
 
-            <ListTodo size={24} />
+            <ListTodo size={20} className="sm:hidden" />
+            <ListTodo size={24} className="hidden sm:block" />
 
           </div>
 
-          <h1 className="font-display text-3xl font-semibold tracking-tight text-charcoal md:text-4xl">
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-charcoal sm:text-3xl md:text-4xl">
 
             Tasks
 
           </h1>
 
-          <p className="mt-3 text-sm leading-relaxed tracking-tight text-charcoal/50">
+          <p className="mt-2 text-xs leading-relaxed tracking-tight text-charcoal/50 sm:mt-3 sm:text-sm">
 
-            {visibleTasks.length} tasks · drag cards between columns or reorder
+            {visibleTaskCount} tasks · drag cards between columns or reorder
 
             within a column
 
@@ -234,7 +239,7 @@ export function KanbanBoard() {
 
         </div>
 
-        <button type="button" onClick={openCreate} className="pill-btn-dark">
+        <button type="button" onClick={openCreate} className="pill-btn-dark w-full sm:w-auto">
 
           <Plus size={18} /> New Task
 
@@ -281,6 +286,10 @@ export function KanbanBoard() {
               key={status}
               status={status}
               tasks={visibleTasks.filter((t) => t.status === status)}
+              archivedTasks={
+                status === "Completed" ? visibleArchivedTasks : undefined
+              }
+              archivedLoading={status === "Completed" ? archivedLoading : false}
               isHoverTarget={hoverStatus === status}
               draggingTaskId={draggingTaskId}
               onDragStart={handleDragStart}

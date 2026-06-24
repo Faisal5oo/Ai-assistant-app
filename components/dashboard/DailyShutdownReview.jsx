@@ -179,7 +179,7 @@ export function DailyShutdownReview({ open, onClose }) {
       }
 
       // Optimistically patch the TanStack Query cache
-      queryClient.setQueryData(queryKeys.tasks, (prev) => {
+      queryClient.setQueryData(queryKeys.tasks("today"), (prev) => {
         if (!prev) return prev;
         const updatedMap = new Map(data.tasks.map((t) => [t.id, t]));
         return prev.map((t) => updatedMap.get(t.id) ?? t);

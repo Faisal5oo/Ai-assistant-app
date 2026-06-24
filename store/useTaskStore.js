@@ -50,6 +50,7 @@ import {
   readFlowSessionFromStorage,
   purgeFlowSessionStorage,
 } from "@/lib/flowStateStorage";
+import { playTimerCompletionChime } from "@/lib/timerCompletionSound";
 
 /**
  * @typedef {import('@/types/interfaces').ActiveTimer} ActiveTimer
@@ -87,6 +88,12 @@ export const useTaskStore = create((set, get) => ({
   runwayLiveHour: null,
   /** @type {import('@/lib/flowStateStorage').PersistedFlowSession | null} */
   activeFlowSession: null,
+
+  /**
+   * True once the target time has been crossed for the current session.
+   * Prevents the completion chime from firing on every subsequent 100ms tick.
+   */
+  timerCompletionFired: false,
 
   setRunwayLiveHour: (hour) => {
     set({ runwayLiveHour: hour });
@@ -179,6 +186,7 @@ export const useTaskStore = create((set, get) => ({
   },
 
   startTimer: (taskId, options = {}) => {
+    set({ timerCompletionFired: false });
     activateFocusTaskImperative(taskId, options);
   },
 
@@ -213,7 +221,7 @@ export const useTaskStore = create((set, get) => ({
     const { activeTimer } = get();
     if (!activeTimer.taskId) {
       purgeFocusSession();
-      set({ activeTimer: initialTimer(), activeTechnique: null });
+      set({ activeTimer: initialTimer(), activeTechnique: null, timerCompletionFired: false });
       return;
     }
 
@@ -225,7 +233,7 @@ export const useTaskStore = create((set, get) => ({
     const taskId = activeTimer.taskId;
 
     purgeFocusSession();
-    set({ activeTimer: initialTimer(), activeTechnique: null });
+    set({ activeTimer: initialTimer(), activeTechnique: null, timerCompletionFired: false });
 
     if (sessionMs > 0) {
       recordTaskTimeImperative(taskId, sessionMs, todayKey());
@@ -233,18 +241,48 @@ export const useTaskStore = create((set, get) => ({
   },
 
   tickTimer: () => {
-    const { activeTimer } = get();
+    const { activeTimer, timerCompletionFired } = get();
     if (!activeTimer.isRunning || !activeTimer.taskId) return;
     const currentMs =
       Date.now() - activeTimer.startedAt + activeTimer.elapsedMs;
-    if (activeTimer.targetMs && currentMs >= activeTimer.targetMs) {
+    if (activeTimer.targetMs && currentMs >= activeTimer.targetMs && !timerCompletionFired) {
+      set({ timerCompletionFired: true });
       get().onTimerComplete();
     }
   },
 
+  /**
+   * Called exactly once when the timer crosses its target duration.
+   * The timer is NOT stopped — it keeps running so actual time spent
+   * continues to accumulate beyond the set goal. The completion chime
+   * fires and a browser Notification is sent (if permission granted).
+   */
   onTimerComplete: () => {
-    const { activeTechnique, pomodoroPhase, pomodoroCount } = get();
-    get().stopTimer();
+    const { activeTechnique, pomodoroPhase, pomodoroCount, activeTimer } = get();
+
+    // Fire the audible chime (works across tabs via AudioContext)
+    playTimerCompletionChime();
+
+    // Browser notification for background-tab awareness
+    if (typeof window !== "undefined" && "Notification" in window) {
+      const taskTitle = getTasksFromCache().find((t) => t.id === activeTimer.taskId)?.title;
+      const body = taskTitle ? `"${taskTitle}" has reached its target time.` : "Your focus timer has completed.";
+      if (Notification.permission === "granted") {
+        try {
+          new Notification("TaskFlow — Timer Complete", { body, silent: true });
+        } catch {}
+      } else if (Notification.permission === "default") {
+        Notification.requestPermission().then((perm) => {
+          if (perm === "granted") {
+            try {
+              new Notification("TaskFlow — Timer Complete", { body, silent: true });
+            } catch {}
+          }
+        });
+      }
+    }
+
+    // Update Pomodoro phase state without stopping the timer
     if (activeTechnique === "pomodoro") {
       if (pomodoroPhase === "work") {
         set({

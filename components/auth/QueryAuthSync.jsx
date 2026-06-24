@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
+import { fetchTodayTasks } from "@/hooks/queries/useTasksQuery";
 import { queryKeys } from "@/lib/query-keys";
 import { useQueriesEnabled } from "@/hooks/useQueriesEnabled";
 
@@ -22,15 +23,8 @@ export function QueryAuthSync() {
     }
 
     queryClient.prefetchQuery({
-      queryKey: queryKeys.tasks,
-      queryFn: async () => {
-        const res = await fetch("/api/tasks", { credentials: "include" });
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || "Could not load tasks.");
-        }
-        return data.tasks ?? [];
-      },
+      queryKey: queryKeys.tasks("today"),
+      queryFn: fetchTodayTasks,
     });
 
     queryClient.prefetchQuery({

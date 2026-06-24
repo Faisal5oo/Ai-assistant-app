@@ -3,6 +3,8 @@ import { connectDB } from "@/lib/mongodb";
 import Task from "@/models/Task";
 import { requireAuth, zodErrorResponse } from "@/lib/api-auth";
 import { reorderTasksSchema } from "@/lib/validations/task";
+import { resolveCompletionFallbackMs } from "@/lib/task-completion-time";
+import { creditDashboardCompletionTime } from "@/lib/task-completion-time.server";
 
 export const dynamic = "force-dynamic";
 
@@ -57,13 +59,44 @@ export async function PUT(request) {
       );
     }
 
+    /** @type {Map<string, number>} */
+    const completionFallbackById = new Map();
+
+    if (columnId === "Completed") {
+      const completingTasks = await Task.find(
+        {
+          _id: { $in: taskIds },
+          userId: auth.id,
+          status: { $ne: "Completed" },
+        },
+        { actualTimeSpent: 1, estimatedTime: 1 }
+      ).lean();
+
+      for (const task of completingTasks) {
+        const fallbackMs = resolveCompletionFallbackMs(task);
+        if (fallbackMs != null) {
+          completionFallbackById.set(String(task._id), fallbackMs);
+        }
+      }
+    }
+
     /** @type {import('mongoose').AnyBulkWriteOperation[]} */
-    const operations = taskIds.map((taskId, index) => ({
-      updateOne: {
-        filter: { _id: taskId, userId: auth.id },
-        update: { $set: { status: columnId, sortOrder: index } },
-      },
-    }));
+    const operations = taskIds.map((taskId, index) => {
+      const fallbackMs = completionFallbackById.get(taskId);
+      const $set = {
+        status: columnId,
+        sortOrder: index,
+        ...(columnId === "Completed" ? { completedAt: new Date() } : {}),
+        ...(fallbackMs != null ? { actualTimeSpent: fallbackMs } : {}),
+      };
+
+      return {
+        updateOne: {
+          filter: { _id: taskId, userId: auth.id },
+          update: { $set },
+        },
+      };
+    });
 
     if (sourceColumnId && sourceTaskIds?.length) {
       sourceTaskIds.forEach((taskId, index) => {
@@ -78,7 +111,19 @@ export async function PUT(request) {
 
     await Task.bulkWrite(operations, { ordered: false });
 
-    return NextResponse.json({ success: true });
+    const totalFallbackMs = [...completionFallbackById.values()].reduce(
+      (sum, ms) => sum + ms,
+      0
+    );
+    const dailyLogs =
+      totalFallbackMs > 0
+        ? await creditDashboardCompletionTime(auth.id, totalFallbackMs)
+        : null;
+
+    return NextResponse.json({
+      success: true,
+      ...(dailyLogs ? { dailyLogs } : {}),
+    });
   } catch (error) {
     console.error("[tasks reorder PUT]", error);
     return NextResponse.json(

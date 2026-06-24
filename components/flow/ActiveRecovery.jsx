@@ -47,19 +47,19 @@ export function ActiveRecovery({ onRecoveryComplete, onExit }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6, ease: "easeInOut" }}
-      className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center px-6 text-center"
+      className="flex min-h-[calc(100dvh-4rem)] flex-col items-center justify-center px-5 py-8 text-center"
     >
       <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gold-dark/90">
         Session Deep Recovery
       </p>
-      <h2 className="mt-3 max-w-md font-display text-2xl font-semibold tracking-wide text-charcoal md:text-3xl">
+      <h2 className="mt-2 max-w-md font-display text-xl font-semibold tracking-wide text-charcoal sm:mt-3 sm:text-2xl md:text-3xl">
         Lower cortisol before you re-enter the world
       </h2>
-      <p className="mt-3 max-w-sm text-sm tracking-wide text-charcoal/45">
+      <p className="mt-2 max-w-sm text-xs tracking-wide text-charcoal/45 sm:mt-3 sm:text-sm">
         Follow the breathing ring. This recovery window cannot be skipped.
       </p>
 
-      <div className="relative mt-12 flex h-56 w-56 items-center justify-center md:h-64 md:w-64">
+      <div className="relative mt-8 flex h-[min(56vw,14rem)] w-[min(56vw,14rem)] items-center justify-center sm:mt-12 sm:h-56 sm:w-56 md:h-64 md:w-64">
         <motion.div
           className="absolute inset-0 rounded-full border-2 border-gold/30"
           animate={{ scale: [1, 1.12, 1], opacity: [0.35, 0.7, 0.35] }}

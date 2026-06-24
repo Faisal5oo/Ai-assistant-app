@@ -3,7 +3,13 @@ import { connectDB } from "@/lib/mongodb";
 import Task from "@/models/Task";
 import { requireAuth, zodErrorResponse } from "@/lib/api-auth";
 import { createTaskSchema } from "@/lib/validations/task";
+import { taskListQuerySchema } from "@/lib/validations/task-list-query";
 import { toClientTask } from "@/lib/task-serializers";
+import { serverTodayKey } from "@/lib/dashboard-utils";
+import {
+  buildArchivedCompletedFilter,
+  buildTodayScopeTaskFilter,
+} from "@/lib/task-query-filters";
 
 export const dynamic = "force-dynamic";
 
@@ -12,15 +18,45 @@ export async function GET(request) {
     const auth = await requireAuth(request);
     if (auth instanceof NextResponse) return auth;
 
+    const { searchParams } = new URL(request.url);
+    const parsed = taskListQuerySchema.safeParse({
+      scope: searchParams.get("scope") ?? "today",
+      date: searchParams.get("date") ?? undefined,
+      tzOffset: searchParams.get("tzOffset") ?? undefined,
+    });
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: parsed.error.issues[0]?.message ?? "Invalid query parameters.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const { scope } = parsed.data;
+    const localDate = parsed.data.date ?? serverTodayKey();
+    const tzOffset = parsed.data.tzOffset ?? 0;
+
     await connectDB();
 
-    const tasks = await Task.find({ userId: auth.id })
-      .sort({ status: 1, sortOrder: 1, createdAt: 1 })
-      .lean();
+    const filter =
+      scope === "archived"
+        ? buildArchivedCompletedFilter(auth.id, localDate, tzOffset)
+        : buildTodayScopeTaskFilter(auth.id, localDate, tzOffset);
+
+    const sort =
+      scope === "archived"
+        ? { completedAt: -1, createdAt: -1 }
+        : { status: 1, sortOrder: 1, createdAt: 1 };
+
+    const tasks = await Task.find(filter).sort(sort).lean();
 
     return NextResponse.json({
       success: true,
       tasks: tasks.map(toClientTask),
+      scope,
     });
   } catch (error) {
     console.error("[tasks GET]", error);
